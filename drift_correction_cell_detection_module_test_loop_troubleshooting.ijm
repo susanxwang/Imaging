@@ -8,11 +8,26 @@ SaveDir = "E:/8-30-21_rapid_dna/save/";
 RedDir = "E:/7-29-21_DNA_fast_smt-like/zproj/";
 SaveDir = "E:/7-29-21_DNA_fast_smt-like/save/";
 
+RedDir = "E:/drift_correction/zproj/";
+SaveDir = "E:/drift_correction/save/";
+
 RedDir = "C:/User/Tom/9-19-21/drift_correct/zproj/";
 SaveDir = "C:/User/Tom/9-19-21/drift_correct/save/";
 
 RedDir = "E:/drift_correction/zproj/";
 SaveDir = "E:/drift_correction/save/";
+
+
+RedDir = "C:/User/Tom/drift_correction/zproj_only7/";
+SaveDir = "C:/User/Tom/drift_correction/save/";
+
+RedDir = "C:/User/Tom/fast_dna_movies_8_27_8_30_9_22/pre_drift_test/";
+SaveDir = "C:/User/Tom/fast_dna_movies_8_27_8_30_9_22/drift_test_save/";
+
+RedDir = "C:/User/Tom/fast_dna_movies_8_27_8_30_9_22/segmented/";
+SaveDir = "C:/User/Tom/fast_dna_movies_8_27_8_30_9_22/drift_corrected/";
+
+run("Options...", "iterations=1 count=1 black do=Nothing");
 
 //setBatchMode(true);
 
@@ -39,11 +54,12 @@ for(i=0; i<FileListRed.length; i++) {
 //		uncomment line below if not already z-projected; also make sure the z-proj green		
 //		run("Z Project...", "projection=[Sum Slices] all");
 		run("Split Channels");
-//		selectWindow("C1-orig");
-		selectWindow("C2-orig");
+		selectWindow("C1-orig");
+//		selectWindow("C2-orig");
 		rename("zproj");
 		run("Duplicate...", "title=zproj_blur duplicate");
 		run("Gaussian Blur...", "sigma=6 stack");
+//		run("Subtract Background...", "rolling=300 sliding stack");
 
 		getDimensions(width, height, channels, slices, frames);
 
@@ -57,7 +73,8 @@ for(i=0; i<FileListRed.length; i++) {
 				run("16-bit");
 
 				run("Auto Threshold", "method=Huang2 ignore_black ignore_white white");
-				run("Adjustable Watershed", "tolerance=10");
+//				run("Adjustable Watershed", "tolerance=10");
+				run("Adjustable Watershed", "tolerance=5");
 				run("Analyze Particles...", "add");
 
 				roinum = roiManager("count");
@@ -115,7 +132,8 @@ for(i=0; i<FileListRed.length; i++) {
 				changeValues(offfiltval, 65535, offfiltval);
 				run("Select None");
 
-				uppermedval = 1.5 * medval;
+//				uppermedval = 1.5 * medval;
+				uppermedval = 2 * medval;
 				uppermedval = toString(uppermedval);
 				uppermedval = parseFloat(uppermedval);
 
@@ -128,8 +146,8 @@ for(i=0; i<FileListRed.length; i++) {
 
 
 
-//		run("Merge Channels...", "c1=zproj_blur c2=zproj c3=C2-orig create");
-		run("Merge Channels...", "c1=zproj_blur c2=zproj c3=C1-orig create");
+		run("Merge Channels...", "c1=zproj_blur c2=zproj c3=C2-orig create");
+//		run("Merge Channels...", "c1=zproj_blur c2=zproj c3=C1-orig create");
 		rename("tempmerge");
 
 //		run("Correct 3D drift", "channel=1 multi_time_scale sub_pixel only=0 lowest=1 highest=1 max_shift_x=130.000000000 max_shift_y=130.000000000 max_shift_z=10");
@@ -139,14 +157,14 @@ for(i=0; i<FileListRed.length; i++) {
 		run("Split Channels");
 //		selectWindow("C1-registered time points");
 		selectWindow("C1-tempmerge-registered");
-		close();
+		rename("blur");
 //		selectWindow("C2-registered time points");
 		selectWindow("C2-tempmerge-registered");
 		rename("dna");
 //		selectWindow("C3-registered time points");
 		selectWindow("C3-tempmerge-registered");
 		rename("organelle");
-		run("Merge Channels...", "c1=dna c2=organelle create");
+		run("Merge Channels...", "c1=dna c2=organelle c3=blur create");
 
 		saveAs("tiff", SaveDir + filenameRed);
 
