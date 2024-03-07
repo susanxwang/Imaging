@@ -1,0 +1,55 @@
+```{r}
+library(dplyr)
+library(readr)
+library(tibble)
+library(stringr)
+
+
+#testdf = read.csv(file = 'E:/Nikon_Processed_Data/6-24-20/msd_merge_2master_brief.csv')
+#testdf = read.csv(file = 'F:/smt_reprocess_12-9-21/msd_merge_2master_brief.csv')
+testdf = read.csv(file = 'E:/6-6-23-ER_flavo/msd_merge_2master_brief.csv')
+
+```
+
+```{r}
+
+testdf2 = select(testdf, DIFCOLOG_SING, ALPHALOG_SING, RADIUS_CONFINEMENT_SING, DIFCO_RADIUSCONF_SING, FIX250, FIX500, AVERAGE_DISPLACEMENT, AVERAGE_ROSE, CONDITION, CELLCNT)
+
+testdf2 = filter(testdf2, DIFCOLOG_SING < 0.095436045)
+testdf2 = filter(testdf2, DIFCOLOG_SING > 0.00015044)
+testdf2 = filter(testdf2, ALPHALOG_SING < 1.580554748)
+testdf2 = filter(testdf2, ALPHALOG_SING > -0.601604491)
+testdf2 = filter(testdf2, RADIUS_CONFINEMENT_SING < 4)
+testdf2 = filter(testdf2, RADIUS_CONFINEMENT_SING > 0.05)
+testdf2 = filter(testdf2, DIFCO_RADIUSCONF_SING < 0.0168861440201449)
+testdf2 = filter(testdf2, DIFCO_RADIUSCONF_SING > 6.93651876722112E-06)
+testdf2 = filter(testdf2, AVERAGE_DISPLACEMENT < 0.313504518790442)
+testdf2 = filter(testdf2, AVERAGE_DISPLACEMENT > 0.0396651946420558)
+testdf2 = filter(testdf2, AVERAGE_ROSE < 148.089035953682)
+testdf2 = filter(testdf2, AVERAGE_ROSE > 38.6607134591952)
+
+testdftemp = transmute(testdf2, DIFCOLOG_SING = log10(DIFCOLOG_SING))
+testdf2$DIFCOLOG_SING = testdftemp$DIFCOLOG_SING
+testdftemp = transmute(testdf2, RADIUS_CONFINEMENT_SING = log10(RADIUS_CONFINEMENT_SING))
+testdf2$RADIUS_CONFINEMENT_SING = testdftemp$RADIUS_CONFINEMENT_SING
+testdftemp = transmute(testdf2, DIFCO_RADIUSCONF_SING = log10(DIFCO_RADIUSCONF_SING))
+testdf2$DIFCO_RADIUSCONF_SING = testdftemp$DIFCO_RADIUSCONF_SING
+testdftemp = transmute(testdf2, FIX250 = log10(FIX250))
+testdf2$FIX250 = testdftemp$FIX250
+testdftemp = transmute(testdf2, FIX500 = log10(FIX500))
+testdf2$FIX500 = testdftemp$FIX500
+
+colnames(testdf2)[1] = "DIFCOLOG_SING_LOG10"
+colnames(testdf2)[3] = "RADIUS_CONFINEMENT_SING_LOG10"
+colnames(testdf2)[4] = "DIFCO_RADIUSCONF_SING_LOG10"
+colnames(testdf2)[5] = "FIX250_LOG10"
+colnames(testdf2)[6] = "FIX500_LOG10"
+
+#write.csv(testdf2, file = "C:/Users/Tigetmp/Desktop/temp/smt/8-24-21 newcompanalysis/6-24-21_6-29-21_16hex_log10outlierremoved.csv")
+write.csv(testdf2, file = "E:/6-6-23-ER_flavo/msd_merge_2master_brief_clustednormalized.csv")
+
+
+
+
+```
+

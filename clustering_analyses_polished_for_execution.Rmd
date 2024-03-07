@@ -1,0 +1,177 @@
+```{r}
+#GMM script
+#Make sure to change the paths, particularly for masterdf2 and outputfile; masterdf should be reasonably robust for training across typical 200hz era viral overexpression datasets
+
+library(dplyr)
+library(readr)
+library(tibble)
+library(stringr)
+
+library(ggplot2)
+library(Hmisc)
+
+library(factoextra)
+library(NbClust)
+
+#library(tidyverse)  
+library(gridExtra)
+
+library(gtools)
+library(ClusterR)
+
+#Training set for identification of GMM centroids for application to new dataset being clustered; make sure this dataset has outliers removed and is log scaled, as per the program brief_compiled_smt_200hz_outlier_removal_logconv_for_gmm_hier_clustering; also, make sure this is balanced amoung conditions represented
+#The training set currently there (method1_final_cull_balance) should be good for most era smt datasets
+
+masterdf = read.csv("C:/Users/Tigetmp/Desktop/temp/smt/8-24-21 newcompanalysis/method1_final_cull_balance.csv")
+
+#change path to that of new dataset having the training dataset's GMM centroids applied to it; make sure this dataset has outliers removed and is log scaled, as per the program brief_compiled_smt_200hz_outlier_removal_logconv_for_gmm_hier_clustering
+
+#masterdf2 = read.csv("C:/Users/Tigetmp/Desktop/temp/smt/8-24-21 newcompanalysis/6-24-21_6-29-21_16hex_log10outlierremoved.csv")
+masterdf2 = read.csv("F:/smt_reprocess_12-9-21/msd_merge_2master_brief_logoutnormed.csv")
+
+#save name and directory for clustered dataset
+#outputfile = 'C:/Users/Tigetmp/Desktop/temp/smt/8-24-21 newcompanalysis/6-24-21_6-29-21_16hex_log10outlierremoved_plusGMM.csv'
+outputfile = 'F:/smt_reprocess_12-9-21/msd_merge_2master_brief_logoutnormed_plusGMM.csv'
+
+#masterdf = filter(masterdf, Condition.2 != "m")
+
+#testdf = select(masterdf, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT, AVERAGE_ROSE)
+testdf = select(masterdf, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT)
+
+testdf = scale(testdf)
+
+gmm = GMM(testdf, 6, dist_mode = "maha_dist", seed_mode = "random_subset", km_iter = 20, em_iter = 20, verbose = F)
+#pr = predict_GMM(testdf, gmm$centroids, gmm$covariance_matrices, gmm$weights) 
+#resultdf = as.data.frame(testdf)
+#resultdf$CLUSTER = pr$cluster_labels
+#resultdf$CONDITION = masterdf$Condition.2
+
+#performing GMM clustering on complete or test datasets based upon centroids determined by testdf above
+#includes determining scaling factors done on original testdf from master df and applying those to the new test datasets
+#then apply new clusters
+
+
+#determine scaling factor
+#make sure to use same columns as testdf
+testdf2 = select(masterdf, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT)
+
+centervec = vector(mode = "double", length = ncol(testdf2))
+scalevec = vector(mode = "double", length = ncol(testdf2))
+
+for (i in 1:ncol(testdf2)) {
+  centervec[i] = (mean(testdf2[,i]))
+}
+
+for (i in 1:ncol(testdf2)) {
+  testdf2[,i] = testdf2[,i] - centervec[i]
+}
+
+
+for (i in 1:ncol(testdf2)) {
+  scalevec[i] = (sd(testdf2[,i]))
+}
+
+#below not technically needed, as I'm just trying to get the scaling vectors, not actually re-create a scaled testdf
+for (i in 1:ncol(testdf2)) {
+  testdf2[,i] = testdf2[,i]/scalevec[i]
+}
+
+
+#scaling testdf3, which is the new test dataset to apply the scaling and GMM centroids to
+
+  
+  
+testdf3 = select(masterdf2, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT)
+
+
+
+for (i in 1:ncol(testdf)) {
+  testdf3[,i] = testdf3[,i] - centervec[i]
+  print(centervec[i])
+}
+
+for (i in 1:ncol(testdf)) {
+  testdf3[,i] = testdf3[,i] / scalevec[i]
+  print(scalevec[i])
+}
+
+
+
+pr = predict_GMM(testdf3, gmm$centroids, gmm$covariance_matrices, gmm$weights) 
+#resultdf = as.data.frame(testdf3)
+masterdf2$CLUSTER_GMM = pr$cluster_labels
+#resultdf$CONDITION = masterdf$Condition.2
+write.csv(masterdf2, file = outputfile)
+
+
+```
+
+
+
+```{r}
+#Hierarchal Ward Clustering
+
+
+#preparing data for ksvm for classification based on clusters
+
+library(dplyr)
+library(readr)
+library(tibble)
+library(stringr)
+
+library(ggplot2)
+library(Hmisc)
+
+library(factoextra)
+library(NbClust)
+
+#library(tidyverse)  
+library(gridExtra)
+
+#training set; should be applicable for all ERa sets; maybe double check for endogenous vs overexpression, as well as organelle coexpression vs non
+masterdf = read.csv("C:/Users/Tigetmp/Desktop/temp/smt/8-24-21 newcompanalysis/method1_final_cull_balance_unscaled_train.csv")
+
+#dataset having ward clustering being applied to it; obviously check that it is outlier removed and appropriately log converted
+#mastertestdf = read.csv("C:/Users/Tigetmp/Desktop/temp/smt/8-24-21 newcompanalysis/6-24-21_6-29-21_16hex_log10outlierremoved_plusGMM.csv")
+#mastertestdf = read.csv("F:/smt_reprocess_12-9-21/msd_merge_2master_brief_logoutnormed_plusGMM.csv")
+mastertestdf = read.csv("E:/6-6-23-ER_flavo/msd_merge_2master_brief_clustednormalized.csv")
+
+
+#outputfile = 'C:/Users/Tigetmp/Desktop/temp/smt/8-24-21 newcompanalysis/6-24-21_6-29-21_16hex_log10outlierremoved_plusGMM_plusWARD.csv'
+#outputfile = 'F:/smt_reprocess_12-9-21/msd_merge_2master_brief_logoutnormed_plusGMM_plusWARD.csv'
+outputfile = 'E:/6-6-23-ER_flavo/msd_merge_2master_brief_WARD_clust.csv'
+
+#set the vector equal to whatever the title of the classifying column is
+#svmtrainclassvec = as.character(masterdf$CLUSTER)
+svmtrainclassvec = as.character(masterdf$X6_AGGLOM_WARD_CLUSTER)
+
+svmtraindf = as.matrix(select(masterdf, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT))
+
+
+
+#support vectors for finding clusters
+library(kernlab)
+
+#ksvmobj = ksvm(svmtraindf, y = svmtrainclassvec, scaled = TRUE, type = 'C-svc', kernel ="rbfdot", kpar = "automatic", C = 1, nu = 0.2, epsilon = 0.1, prob.model = FALSE, class.weights = NULL, cross = 0, fit = TRUE, cache = 40, tol = 0.001, shrinking = TRUE, subset, na.action = na.omit)
+
+#best currently
+#ksvmobj = ksvm(svmtraindf, y = svmtrainclassvec, scaled = TRUE, type = 'spoc-svc', kernel ="laplacedot", kpar = "automatic", C = 1, nu = 0.2, epsilon = 0.1, prob.model = FALSE, class.weights = NULL, cross = 0, fit = TRUE, cache = 40, tol = 0.001, shrinking = TRUE, subset, na.action = na.omit)
+
+ksvmobj = ksvm(svmtraindf, y = svmtrainclassvec, scaled = TRUE, type = 'C-svc', kernel ="laplacedot", kpar = "automatic", C = 8, nu = 0.2, epsilon = 0.1, prob.model = FALSE, class.weights = NULL, cross = 0, fit = TRUE, cache = 40, tol = 0.001, shrinking = TRUE, subset, na.action = na.omit)
+
+
+svmtestdf = as.matrix(select(mastertestdf, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT))
+
+
+kvsmtesttype = predict(ksvmobj, svmtestdf)
+
+#kvsmpredicteddf = as.data.frame(svmtestdf)
+mastertestdf$CLUSTER_WARD = kvsmtesttype
+write.csv(mastertestdf, file = outputfile)
+
+
+```
+```{r}
+sapply(masterdf, class)
+```
+

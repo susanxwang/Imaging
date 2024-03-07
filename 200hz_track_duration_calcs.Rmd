@@ -1,0 +1,313 @@
+```{r}
+library(dplyr)
+library(readr)
+library(tibble)
+library(stringr)
+
+testdf = read_tsv("C:/Users/Tigetmp/Desktop/test_spot_file.txt")
+
+testdf2 = filter(testdf, FRAME > 1000)
+
+```
+
+```{r}
+
+
+#
+# for (bb in 2:length(testdf2$TRACK_ID)) {
+#   distance_vector[bb] = ((testdf2$POSITION_X[bb] - testdf2$POSITION_X[(bb-1)])^2 + (testdf2$POSITION_Y[bb] - testdf2$POSITION_Y[(bb-1)])^2)^(1/2)
+#
+# }
+
+
+
+#create vector of distance of each point in the tract relative to the first position in the track
+trackstart_temp_pos = 1
+trackdur_temp = 1
+
+duration_vector = rep(0, length(testdf2$TRACK_ID))
+distance_vector = rep(0, length(testdf2$TRACK_ID))
+
+for (aa in 2:length(testdf2$TRACK_ID)) {
+  if (testdf2$TRACK_ID[aa] != testdf2$TRACK_ID[(aa-1)]) {
+    duration_vector[trackstart_temp_pos] = trackdur_temp
+    
+    trackstart_temp_pos = aa
+    trackdur_temp = 1
+    
+  }
+  else{
+    trackdur_temp = trackdur_temp+1
+    distance_vector[aa] = ((testdf2$POSITION_X[aa] - testdf2$POSITION_X[(trackstart_temp_pos)])^2 + (testdf2$POSITION_Y[aa] - testdf2$POSITION_Y[(trackstart_temp_pos)])^2)^(1/2)
+  }
+  
+}
+
+
+#create vector of distance of each point in the tract relative to the first position in the track, or, if the track is over 40 points, the point 40 frames from the current position
+
+rolltrackstart_temp_pos = 1
+rolltrackdur_temp = 1
+
+rollduration_vector = rep(0, length(testdf2$TRACK_ID))
+rolldistance_vector = rep(0, length(testdf2$TRACK_ID))
+
+
+
+for (aa in 2:length(testdf2$TRACK_ID)) {
+  if (testdf2$TRACK_ID[aa] != testdf2$TRACK_ID[(aa-1)]) {
+    rollduration_vector[rolltrackstart_temp_pos] = rolltrackdur_temp
+    
+    rolltrackstart_temp_pos = aa
+    rolltrackdur_temp = 1
+    
+  }
+  else{
+    
+    rolltrackdur_temp = rolltrackdur_temp+1
+    rolltrackdur_temp2 = testdf2$FRAME[aa]-testdf2$FRAME[rolltrackstart_temp_pos]
+    
+    if (rolltrackdur_temp2 < 40) {
+      rolldistance_vector[aa] = ((testdf2$POSITION_X[aa] - testdf2$POSITION_X[(rolltrackstart_temp_pos)])^2 + (testdf2$POSITION_Y[aa] - testdf2$POSITION_Y[(rolltrackstart_temp_pos)])^2)^(1/2)
+    }
+    else{
+      if (rolltrackdur_temp >=40) {
+        rollbackstartcheck = aa-40
+
+      }
+      else{
+        rollbackstartcheck = rolltrackstart_temp_pos
+      }
+      #start rolling back the rollback value until we're a 40 frames or less from aa
+      rollbackframediff = testdf2$FRAME[aa]-testdf2$FRAME[rollbackstartcheck]
+      while (rollbackframediff > 40) {
+        rollbackstartcheck = rollbackstartcheck + 1
+        rollbackframediff = testdf2$FRAME[aa]-testdf2$FRAME[rollbackstartcheck]
+      }
+
+      rolldistance_vector[aa] = ((testdf2$POSITION_X[aa] - testdf2$POSITION_X[(rollbackstartcheck)])^2 + (testdf2$POSITION_Y[aa] - testdf2$POSITION_Y[(rollbackstartcheck)])^2)^(1/2)
+
+    }
+    
+    
+    
+    
+    
+  }
+  
+}
+
+#Determine if how long each track remains under various distance thresholds for either the fixed or rolling track distance vectors
+
+trackstart_temp_pos = 1
+
+trackfixdurrad250 = 1
+trackfixdurrad500 = 1
+trackfixdurrad750 = 1
+trackfixdurrad1000 = 1
+trackfixdurrad1500 = 1
+
+trackrolldurrad250 = 1
+trackrolldurrad500 = 1
+trackrolldurrad750 = 1
+trackrolldurrad1000 = 1
+trackrolldurrad1500 = 1
+
+fixdurrad250_vector = rep(0, length(testdf2$TRACK_ID))
+fixdurrad500_vector = rep(0, length(testdf2$TRACK_ID))
+fixdurrad750_vector = rep(0, length(testdf2$TRACK_ID))
+fixdurrad1000_vector = rep(0, length(testdf2$TRACK_ID))
+fixdurrad1500_vector = rep(0, length(testdf2$TRACK_ID))
+
+rolldurrad250_vector = rep(0, length(testdf2$TRACK_ID))
+rolldurrad500_vector = rep(0, length(testdf2$TRACK_ID))
+rolldurrad750_vector = rep(0, length(testdf2$TRACK_ID))
+rolldurrad1000_vector = rep(0, length(testdf2$TRACK_ID))
+rolldurrad1500_vector = rep(0, length(testdf2$TRACK_ID))
+
+    fix250kill = 0
+    fix500kill = 0
+    fix750kill = 0
+    fix1000kill = 0
+    fix1500kill = 0
+    
+    roll250kill = 0
+    roll500kill = 0
+    roll750kill = 0
+    roll1000kill = 0
+    roll1500kill = 0
+
+
+for (aa in 2:length(testdf2$TRACK_ID)) {
+  if (testdf2$TRACK_ID[aa] != testdf2$TRACK_ID[(aa-1)]) {
+    
+    fixdurrad250_vector[trackstart_temp_pos] = trackfixdurrad250
+    fixdurrad500_vector[trackstart_temp_pos] = trackfixdurrad500
+    fixdurrad750_vector[trackstart_temp_pos] = trackfixdurrad750
+    fixdurrad1000_vector[trackstart_temp_pos] = trackfixdurrad1000
+    fixdurrad1500_vector[trackstart_temp_pos] = trackfixdurrad1500
+
+    rolldurrad250_vector[trackstart_temp_pos] = trackrolldurrad250
+    rolldurrad500_vector[trackstart_temp_pos] = trackrolldurrad500
+    rolldurrad750_vector[trackstart_temp_pos] = trackrolldurrad750
+    rolldurrad1000_vector[trackstart_temp_pos] = trackrolldurrad1000
+    rolldurrad1500_vector[trackstart_temp_pos] = trackrolldurrad1500
+    
+    
+    trackstart_temp_pos = aa
+    trackfixdurrad250 = 1
+    trackfixdurrad500 = 1
+    trackfixdurrad750 = 1
+    trackfixdurrad1000 = 1
+    trackfixdurrad1500 = 1
+
+    trackrolldurrad250 = 1
+    trackrolldurrad500 = 1
+    trackrolldurrad750 = 1
+    trackrolldurrad1000 = 1
+    trackrolldurrad1500 = 1
+    
+    fix250kill = 0
+    fix500kill = 0
+    fix750kill = 0
+    fix1000kill = 0
+    fix1500kill = 0
+    
+    roll250kill = 0
+    roll500kill = 0
+    roll750kill = 0
+    roll1000kill = 0
+    roll1500kill = 0
+    
+    
+  }
+  else{
+    if ((distance_vector[aa] < 0.25) && (fix250kill == 0)) {
+      trackfixdurrad250 = trackfixdurrad250 + 1
+    }
+    else{
+      fix250kill = 1
+    }
+    if ((distance_vector[aa] < 0.5) && (fix500kill == 0)) {
+      trackfixdurrad500 = trackfixdurrad500 + 1
+    }
+    else{
+      fix500kill = 1
+    }
+    if ((distance_vector[aa] < 0.75) && (fix750kill == 0)) {
+      trackfixdurrad750 = trackfixdurrad750 + 1
+    }
+    else{
+      fix750kill = 1
+    }
+    if ((distance_vector[aa] < 1) && (fix1000kill == 0)) {
+      trackfixdurrad1000 = trackfixdurrad1000 + 1
+    }
+    else{
+      fix1000kill = 1
+    }
+    if ((distance_vector[aa] < 1.5) && (fix1500kill == 0)) {
+      trackfixdurrad1500 = trackfixdurrad1500 + 1
+    }
+    else{
+      fix1500kill = 1
+    }
+    
+    
+    
+    
+    
+    if ((rolldistance_vector[aa] < 0.25) && (roll250kill == 0)) {
+      trackrolldurrad250 = trackrolldurrad250 + 1
+    }
+    else{
+      roll250kill = 1
+    }
+    if ((rolldistance_vector[aa] < 0.5) && (roll500kill == 0)) {
+      trackrolldurrad500 = trackrolldurrad500 + 1
+    }
+    else{
+      roll500kill = 1
+    }
+    if ((rolldistance_vector[aa] < 0.75) && (roll750kill == 0)) {
+      trackrolldurrad750 = trackrolldurrad750 + 1
+    }
+    else{
+      roll750kill = 1
+    }
+    if ((rolldistance_vector[aa] < 1) && (roll1000kill == 0)) {
+      trackrolldurrad1000 = trackrolldurrad1000 + 1
+    }
+    else{
+      roll1000kill = 1
+    }
+    if ((rolldistance_vector[aa] < 1.5) && (roll1500kill == 0)) {
+      trackrolldurrad1500 = trackrolldurrad1500 + 1
+    }
+    else{
+      roll1500kill = 1
+    }
+    
+  }
+  
+}
+
+fixdurrad250_vector[trackstart_temp_pos] = trackfixdurrad250
+fixdurrad500_vector[trackstart_temp_pos] = trackfixdurrad500
+fixdurrad750_vector[trackstart_temp_pos] = trackfixdurrad750
+fixdurrad1000_vector[trackstart_temp_pos] = trackfixdurrad1000
+fixdurrad1500_vector[trackstart_temp_pos] = trackfixdurrad1500
+
+rolldurrad250_vector[trackstart_temp_pos] = trackrolldurrad250
+rolldurrad500_vector[trackstart_temp_pos] = trackrolldurrad500
+rolldurrad750_vector[trackstart_temp_pos] = trackrolldurrad750
+rolldurrad1000_vector[trackstart_temp_pos] = trackrolldurrad1000
+rolldurrad1500_vector[trackstart_temp_pos] = trackrolldurrad1500
+
+testdf3 = testdf2
+
+testdf3$FIX250 = fixdurrad250_vector
+testdf3$FIX500 = fixdurrad500_vector
+testdf3$FIX750 = fixdurrad750_vector
+testdf3$FIX1000 = fixdurrad1000_vector
+testdf3$FIX1500 = fixdurrad1500_vector
+
+testdf3$ROLL250 = rolldurrad250_vector
+testdf3$ROLL500 = rolldurrad500_vector
+testdf3$ROLL750 = rolldurrad750_vector
+testdf3$ROLL1000 = rolldurrad1000_vector
+testdf3$ROLL1500 = rolldurrad1500_vector
+
+
+
+```
+
+```{r}
+head(distance_vector,150)
+```
+
+
+```{r}
+head(rolldistance_vector, 150)
+```
+
+```{r}
+head(rolldurrad500_vector,150)
+```
+
+```{r}
+distance_vector2 = rep(0, length(testdf2$TRACK_ID))
+
+for (bb in 2:length(testdf2$TRACK_ID)) {
+  distance_vector2[bb] = ((testdf2$POSITION_X[bb] - testdf2$POSITION_X[(bb-1)])^2 + (testdf2$POSITION_Y[bb] - testdf2$POSITION_Y[(bb-1)])^2)^(1/2)
+  
+}
+
+head(distance_vector2, 50)
+```
+
+
+
+
+
+

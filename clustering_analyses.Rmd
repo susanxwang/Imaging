@@ -1,0 +1,449 @@
+```{r}
+
+library(dplyr)
+library(readr)
+library(tibble)
+library(stringr)
+
+library(ggplot2)
+library(Hmisc)
+
+library(factoextra)
+library(NbClust)
+
+#library(tidyverse)  
+library(gridExtra)
+
+
+masterdf = read.csv("C:/Users/Tigetmp/Desktop/temp/smt/8-24-21 newcompanalysis/method1_final_cull_balance.csv")
+
+#masterdf = filter(masterdf, Condition.2 != "m")
+
+#testdf = select(masterdf, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT, AVERAGE_ROSE)
+testdf = select(masterdf, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT)
+
+testdf = scale(testdf)
+
+
+```
+
+```{r}
+sampktestdf = testdf[sample(nrow(testdf), 5000),]
+#sampktestdf = scale(sampktestdf)
+#testdf = scale(testdf)
+
+```
+
+```{r}
+res = NbClust(data = sampktestdf, diss = NULL, distance = "euclidean", min.nc = 2, max.nc = 10, method = "kmeans", index = "all", alphaBeale = 0.1)
+```
+
+```{r}
+set.seed(123)
+result = kmeans(testdf,  6, algorithm="MacQueen", nstart = 25, iter.max = 100)
+
+resultdf = as.data.frame(testdf)
+resultdf$CLUSTER = result$cluster
+resultdf$CONDITION = masterdf$Condition.2
+write.csv(resultdf, file = 'C:/Users/Tigetmp/Desktop/kmeans_3clust_alpha_radconf_raddif_fix250_disp_1h17h.csv')
+```
+
+```{r}
+library(gtools)
+library(ClusterR)
+
+```
+
+```{r}
+gmm = GMM(testdf, 6, dist_mode = "maha_dist", seed_mode = "random_subset", km_iter = 20, em_iter = 20, verbose = F)
+pr = predict_GMM(testdf, gmm$centroids, gmm$covariance_matrices, gmm$weights) 
+resultdf = as.data.frame(testdf)
+resultdf$CLUSTER = pr$cluster_labels
+resultdf$CONDITION = masterdf$Condition.2
+#write.csv(resultdf, file = 'C:/Users/Tigetmp/Desktop/kmeans_3clust_alpha_radconf_raddif_fix250_disp_1h17h.csv')
+```
+
+
+```{r}
+#performing GMM clustering on complete or test datasets based upon centroids determined by testdf above
+#includes determining scaling factors done on original testdf from master df and applying those to the new test datasets
+#then apply new clusters
+
+
+#determine scaling factor
+#make sure to use same columns as testdf
+testdf2 = select(masterdf, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT)
+
+centervec = vector(mode = "double", length = ncol(testdf2))
+scalevec = vector(mode = "double", length = ncol(testdf2))
+
+for (i in 1:ncol(testdf2)) {
+  centervec[i] = (mean(testdf2[,i]))
+}
+
+for (i in 1:ncol(testdf2)) {
+  testdf2[,i] = testdf2[,i] - centervec[i]
+}
+
+
+for (i in 1:ncol(testdf2)) {
+  scalevec[i] = (sd(testdf2[,i]))
+}
+
+#below not technically needed, as I'm just trying to get the scaling vectors, not actually re-create a scaled testdf
+for (i in 1:ncol(testdf2)) {
+  testdf2[,i] = testdf2[,i]/scalevec[i]
+}
+
+
+#scaling testdf3, which is the new test dataset to apply the scaling and GMM centroids to
+#change path to that of new testdf
+masterdf2 = read.csv("C:/Users/Tigetmp/Desktop/temp/smt/8-24-21 newcompanalysis/outlier_filtered_and_logged_data_all_sets_ksvm_formatted.csv")
+  
+  
+testdf3 = select(masterdf2, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT)
+
+
+
+for (i in 1:ncol(testdf)) {
+  testdf3[,i] = testdf3[,i] - centervec[i]
+  print(centervec[i])
+}
+
+for (i in 1:ncol(testdf)) {
+  testdf3[,i] = testdf3[,i] / scalevec[i]
+  print(scalevec[i])
+}
+
+
+
+pr = predict_GMM(testdf3, gmm$centroids, gmm$covariance_matrices, gmm$weights) 
+resultdf = as.data.frame(testdf3)
+resultdf$CLUSTER = pr$cluster_labels
+#resultdf$CONDITION = masterdf$Condition.2
+write.csv(resultdf, file = 'C:/Users/Tigetmp/Desktop/gaussian_mix_6_complete_set.csv')
+
+```
+
+
+
+```{r}
+library(cluster)
+
+```
+
+```{r}
+agnescompletedf = agnes(testdf, method = "ward")
+```
+
+```{r}
+agnesclusters = cutree(agnescompletedf, k = 4)
+resultdf = as.data.frame(testdf)
+resultdf$CLUSTER = agnesclusters
+resultdf$CONDITION = masterdf$Condition.2
+write.csv(resultdf, file = 'C:/Users/Tigetmp/Desktop/kmeans_3clust_alpha_radconf_raddif_fix250_disp_1h17h.csv')
+```
+
+```{r}
+saveRDS(agnescompletedf,"C:/Users/Tigetmp/Desktop/agnes_difco_alpha_radconf_raddif_fix250_disp_m1h17h.RDS")
+
+agnescompletedf2 = readRDS("C:/Users/Tigetmp/Desktop/agnes_difco_alpha_radconf_raddif_fix250_disp_m1h17h.RDS")
+```
+
+```{r}
+library(MCL)
+```
+
+```{r}
+library(fields)
+sampktestdf = testdf[sample(nrow(testdf), 1000),]
+distsampktestdf = rdist(as.matrix(sampktestdf))
+```
+
+
+```{r}
+#mcl(x, addLoops = NULL, expansion = 2, inflation = 2, allow1 = FALSE, max.iter = 100, ESM = FALSE)
+#https://cran.r-project.org/web/packages/MCL/MCL.pdf
+#sampktestdf = testdf[sample(nrow(testdf), 500),]
+#mclout = mcl(distsampktestdf, addLoops = TRUE)
+mclout = mcl(distsampktestdf, addLoops = FALSE, expansion = 2, inflation = 20)
+```
+
+```{r}
+resultdf = as.data.frame(sampktestdf)
+resultdf$CLUSTER = mclout$Cluster
+#resultdf$CONDITION = masterdf$Condition.2
+write.csv(resultdf, file = 'C:/Users/Tigetmp/Desktop/mcl_default_difco_alpha_radconf_raddif_fix250_disp_m1h17h.csv')
+```
+
+```{r}
+svmtraindf = read.csv('C:/Users/Tigetmp/Desktop/temp/smt/8-24-21 newcompanalysis/6aglomwardclust_train_set.csv')
+svmtestdf = read.csv('C:/Users/Tigetmp/Desktop/temp/smt/8-24-21 newcompanalysis/6aglomwardclust_test_set.csv')
+svmtrainclassvec = as.character(svmtraindf$CLUSTER)
+svmtraindf = as.matrix(svmtraindf[1:6])
+svmtestdf = (svmtestdf[1:6])
+```
+
+```{r}
+#preparing data for ksvm for classification based on clusters
+
+library(dplyr)
+library(readr)
+library(tibble)
+library(stringr)
+
+library(ggplot2)
+library(Hmisc)
+
+library(factoextra)
+library(NbClust)
+
+#library(tidyverse)  
+library(gridExtra)
+
+masterdf = read.csv("C:/Users/Tigetmp/Desktop/temp/smt/8-24-21 newcompanalysis/method1_final_cull_balance_unscaled_train.csv")
+
+#set the vector equal to whatever the title of the classifying column is
+#svmtrainclassvec = as.character(masterdf$CLUSTER)
+svmtrainclassvec = as.character(masterdf$X6_AGGLOM_WARD_CLUSTER)
+
+svmtraindf = as.matrix(select(masterdf, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT))
+
+
+mastertestdf = read.csv("C:/Users/Tigetmp/Desktop/temp/smt/8-24-21 newcompanalysis/method1_final_cull_balance_unscaled_test.csv")
+
+
+svmtestdf = as.matrix(select(mastertestdf, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT))
+
+```
+
+
+```{r}
+#support vectors for finding clusters
+library(kernlab)
+
+#ksvmobj = ksvm(svmtraindf, y = svmtrainclassvec, scaled = TRUE, type = 'C-svc', kernel ="rbfdot", kpar = "automatic", C = 1, nu = 0.2, epsilon = 0.1, prob.model = FALSE, class.weights = NULL, cross = 0, fit = TRUE, cache = 40, tol = 0.001, shrinking = TRUE, subset, na.action = na.omit)
+
+#best currently
+#ksvmobj = ksvm(svmtraindf, y = svmtrainclassvec, scaled = TRUE, type = 'spoc-svc', kernel ="laplacedot", kpar = "automatic", C = 1, nu = 0.2, epsilon = 0.1, prob.model = FALSE, class.weights = NULL, cross = 0, fit = TRUE, cache = 40, tol = 0.001, shrinking = TRUE, subset, na.action = na.omit)
+
+ksvmobj = ksvm(svmtraindf, y = svmtrainclassvec, scaled = TRUE, type = 'spoc-svc', kernel ="laplacedot", kpar = "automatic", C = 8, nu = 0.2, epsilon = 0.1, prob.model = FALSE, class.weights = NULL, cross = 0, fit = TRUE, cache = 40, tol = 0.001, shrinking = TRUE, subset, na.action = na.omit)
+
+```
+
+```{r}
+kvsmtesttype = predict(ksvmobj, svmtestdf)
+```
+
+```{r}
+mastertestdf = read.csv("C:/Users/Tigetmp/Desktop/temp/smt/8-24-21 newcompanalysis/outlier_filtered_and_logged_data_all_sets_ksvm_formatted.csv")
+
+
+svmtestdf = as.matrix(select(mastertestdf, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT))
+```
+
+
+```{r}
+kvsmpredicteddf = as.data.frame(svmtestdf)
+kvsmpredicteddf$PREDCLUST = kvsmtesttype
+write.csv(kvsmpredicteddf, file = 'C:/Users/Tigetmp/Desktop/kvsmtestout4.csv')
+```
+
+
+```{r}
+#preparing data for ksvm for classification based on e2 condition
+
+library(dplyr)
+library(readr)
+library(tibble)
+library(stringr)
+
+library(ggplot2)
+library(Hmisc)
+
+library(factoextra)
+library(NbClust)
+
+#library(tidyverse)  
+library(gridExtra)
+
+masterdf = read.csv("C:/Users/Tigetmp/Desktop/temp/smt/8-24-21 newcompanalysis/method1_final_cull_balance_unscaled_train.csv")
+
+#masterdf = filter(masterdf, Condition.2 == "1h" | Condition.2 == "17h")
+
+#set the vector equal to whatever the title of the classifying column is
+#svmtrainclassvec = as.character(masterdf$CLUSTER)
+svmtrainclassvec = as.character(masterdf$Condition.3)
+
+svmtraindf = as.matrix(select(masterdf, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT))
+
+
+mastertestdf = read.csv("C:/Users/Tigetmp/Desktop/temp/smt/8-24-21 newcompanalysis/method1_final_cull_balance_unscaled_test.csv")
+
+
+svmtestdf = as.matrix(select(mastertestdf, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT))
+
+```
+
+```{r}
+#support vectors for finding clusters
+library(kernlab)
+
+ksvmobj = ksvm(svmtraindf, y = svmtrainclassvec, scaled = TRUE, type = 'C-svc', kernel ="rbfdot", kpar = "automatic", C = 1, nu = 0.2, epsilon = 0.1, prob.model = FALSE, class.weights = NULL, cross = 0, fit = TRUE, cache = 40, tol = 0.001, shrinking = TRUE, subset, na.action = na.omit)
+
+#best currently
+#ksvmobj = ksvm(svmtraindf, y = svmtrainclassvec, scaled = TRUE, type = 'spoc-svc', kernel ="laplacedot", kpar = "automatic", C = 1, nu = 0.2, epsilon = 0.1, prob.model = FALSE, class.weights = NULL, cross = 0, fit = TRUE, cache = 40, tol = 0.001, shrinking = TRUE, subset, na.action = na.omit)
+
+#ksvmobj = ksvm(svmtraindf, y = svmtrainclassvec, scaled = TRUE, type = 'spoc-svc', kernel ="laplacedot", kpar = "automatic", C = 8, nu = 0.2, epsilon = 0.1, prob.model = FALSE, class.weights = NULL, cross = 0, fit = TRUE, cache = 40, tol = 0.001, shrinking = TRUE, subset, na.action = na.omit)
+
+```
+
+
+```{r}
+
+kvsmtesttype = predict(ksvmobj, svmtraindf)
+kvsmpredicteddf = as.data.frame(svmtraindf)
+kvsmpredicteddf$PREDCLUST = kvsmtesttype
+kvsmpredicteddf$ACTUALCLUST = masterdf$Condition.2
+#write.csv(kvsmpredicteddf, file = 'C:/Users/Tigetmp/Desktop/kvsmtestout4.csv')
+
+```
+
+```{r}
+
+
+svmtraindf = filter(kvsmpredicteddf, PREDCLUST == "p")
+svmtraindf = filter(kvsmpredicteddf, ACTUALCLUST == "1h" | ACTUALCLUST == "17h")
+
+#set the vector equal to whatever the title of the classifying column is
+#svmtrainclassvec = as.character(masterdf$CLUSTER)
+svmtrainclassvec = as.character(svmtraindf$ACTUALCLUST)
+
+svmtraindf = as.matrix(select(svmtraindf, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT))
+
+
+```
+
+```{r}
+library(kernlab)
+
+ksvmobj2 = ksvm(svmtraindf, y = svmtrainclassvec, scaled = TRUE, type = 'C-svc', kernel ="rbfdot", kpar = "automatic", C = 1, nu = 0.2, epsilon = 0.1, prob.model = FALSE, class.weights = NULL, cross = 0, fit = TRUE, cache = 40, tol = 0.001, shrinking = TRUE, subset, na.action = na.omit)
+```
+
+
+```{r}
+
+kvsmtesttype = predict(ksvmobj2, svmtraindf)
+kvsmpredicteddf = as.data.frame(svmtraindf)
+kvsmpredicteddf$PREDCLUST = kvsmtesttype
+kvsmpredicteddf$ACTUALCLUST = svmtrainclassvec
+write.csv(kvsmpredicteddf, file = 'C:/Users/Tigetmp/Desktop/kvsmtestout4.csv')
+
+```
+
+
+```{r}
+#classification using ksvm methodology on e2 state using the ksvmobj and ksvmobj2 objects, using ksvmobj to filter out minus e2, and then
+
+masterdf3 = read.csv("C:/Users/Tigetmp/Desktop/temp/smt/8-24-21 newcompanalysis/outlier_filtered_and_logged_data_all_sets_ksvm_formatted.csv")
+
+
+svmtraindf = as.matrix(select(masterdf3, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT))
+
+kvsmtesttype = predict(ksvmobj, svmtraindf)
+
+masterdf3$KSVM_MVP_PREDCLUST = kvsmtesttype
+write.csv(masterdf3, file = 'C:/Users/Tigetmp/Desktop/KSVM_MVP_PREDCLUST.csv')
+
+```
+
+```{r}
+
+
+masterdf4 = filter(masterdf3, KSVM_MVP_PREDCLUST == "p")
+svmtraindf = as.matrix(select(masterdf4, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT))
+
+kvsmtesttype2 = predict(ksvmobj2, svmtraindf)
+
+masterdf4$KSVM_1HV17H_PREDCLUST = kvsmtesttype2
+write.csv(masterdf4, file = 'C:/Users/Tigetmp/Desktop/KSVM_1HV17H_PREDCLUST.csv')
+
+```
+
+
+
+```{r}
+#scale and descale calculations
+
+
+```
+
+```{r}
+library(dplyr)
+library(readr)
+library(tibble)
+library(stringr)
+
+
+testdf2 = select(masterdf, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT)
+
+centervec = vector(mode = "double", length = ncol(testdf2))
+scalevec = vector(mode = "double", length = ncol(testdf2))
+
+for (i in 1:ncol(testdf2)) {
+  centervec[i] = (mean(testdf2[,i]))
+}
+
+for (i in 1:ncol(testdf2)) {
+  testdf2[,i] = testdf2[,i] - centervec[i]
+}
+
+
+for (i in 1:ncol(testdf2)) {
+  scalevec[i] = (sd(testdf2[,i]))
+}
+
+for (i in 1:ncol(testdf2)) {
+  testdf2[,i] = testdf2[,i]/scalevec[i]
+}
+
+
+
+testdf3 = testdf
+
+for (i in 1:ncol(testdf)) {
+  testdf3[,i] = testdf[,i] * scalevec[i]
+  print(scalevec[i])
+}
+
+
+for (i in 1:ncol(testdf)) {
+  testdf3[,i] = testdf3[,i] + centervec[i]
+  print(centervec[i])
+}
+
+
+```
+
+```{r}
+
+testdf2[,1] = testdf[,1]/2
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
