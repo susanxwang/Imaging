@@ -1,0 +1,13 @@
+rename("orig");
+run("Duplicate...", "title=segmented_bursts");
+run("Select All");
+run("Clear", "slice");
+run("Select None");
+selectWindow("orig");
+run("Duplicate...", "title=gblur10");
+run("Gaussian Blur...", "sigma=10");
+run("Subtract Background...", "rolling=500");
+run("Auto Threshold", "method=Mean ignore_black ignore_white white");
+run("Watershed");
+run("ROI Manager...");
+run("Analyze Particles...", "size=40.00-220.00 add");
