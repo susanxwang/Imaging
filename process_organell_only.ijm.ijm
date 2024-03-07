@@ -1,0 +1,73 @@
+//create dist transform DoG images from organelle channel
+		rename("orig");
+		selectWindow("orig");
+		run("Z Project...", "projection=[Average Intensity]");
+//		run("Z Project...", "stop=3 projection=[Average Intensity]");
+//		run("Z Project...", "start=7 projection=[Average Intensity]");
+//		run("Z Project...", "start=4 stop=6 projection=[Average Intensity]");
+		selectWindow("orig");
+		selectWindow("AVG_orig");
+		run("Duplicate...", "title=thresh");
+		run("Auto Threshold", "method=Default ignore_black ignore_white white");
+		run("Duplicate...", "title=thresh_in");
+		selectWindow("thresh");
+		run("Duplicate...", "title=thresh_out");
+		selectWindow("thresh_in");
+		setThreshold(127, 255);
+		run("Create Selection");
+		selectWindow("thresh_in");
+		run("ROI Manager...");
+		roiManager("Add");
+		selectWindow("thresh_out");
+		run("Create Selection");
+		roiManager("Add");
+		selectWindow("AVG_orig");
+		roiManager("Select", 0);
+		run("Measure");
+		internalmean = (getResult("Mean", 0));
+		selectWindow("AVG_orig");
+		run("Select None");
+		run("Duplicate...", "title=manip");
+		roiManager("Select", 1);
+		run("Set...", "value="+internalmean);
+		selectWindow("manip");
+		run("Duplicate...", "title=manip-gblur2");
+		run("Duplicate...", "title=manip-gblur4");
+		selectWindow("manip-gblur2");
+		run("Select None");
+		run("Gaussian Blur...", "sigma=2");
+		selectWindow("manip-gblur4");
+		run("Select None");
+		run("Gaussian Blur...", "sigma=4");
+		imageCalculator("Subtract create", "manip-gblur2","manip-gblur4");
+		selectWindow("Result of manip-gblur2");
+		roiManager("Select", 0);
+		setBackgroundColor(0, 0, 0);
+		run("Clear Outside");
+		run("Select None");
+
+//run("Auto Threshold", "method=[Try all] ignore_black ignore_white white");
+
+		run("Duplicate...", "title=segment");
+		run("Auto Threshold", "method=Otsu ignore_black ignore_white white");
+
+		roiManager("Deselect");
+		roiManager("Delete");
+		
+		selectWindow("Result of manip-gblur2");
+		close();
+		selectWindow("manip-gblur4");
+		close();
+		selectWindow("manip-gblur2");
+		close();
+		selectWindow("manip");
+		close();
+		selectWindow("AVG_orig");
+		close();
+		selectWindow("thresh_out");
+		close();
+		selectWindow("thresh_in");
+		close();
+		selectWindow("thresh");
+		close();
+		
