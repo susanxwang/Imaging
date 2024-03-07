@@ -1,0 +1,163 @@
+```{r}
+
+#load base .csv file, which is the trackmate "export all spot statistics" + "execute" command, plus me changing the z-position to time in minutes
+
+library(dplyr)
+library(readr)
+library(tibble)
+library(stringr)
+
+library(ggplot2)
+library(Hmisc)
+
+masterdf = read.csv("D:/Scripts/imagej/live_cell_burst_quantitation/2-23-21_compilation.csv")
+
+
+
+```
+
+```{r}
+burstduracute = vector(mode = "double")
+burstdurchron = vector(mode = "double")
+postoffduracute = vector(mode = "double")
+postoffdurchron = vector(mode = "double")
+preonduracute = vector(mode = "double")
+preondurchron = vector(mode = "double")
+firstburst = vector(mode = "double")
+
+gap = 1
+
+masterdf = arrange(masterdf, EXP, TRACK_ID, FRAME)
+
+expvec = unique(masterdf$EXP)
+for (z in 1:length(expvec)) {
+  expdf = filter(masterdf, EXP == expvec[z])
+  trackvec = as.character(unique(expdf$TRACK_ID))
+  for (y in 1:length(trackvec)) {
+    trackdf = filter(expdf, TRACK_ID == trackvec[y])
+
+#Deal with "None" tracks
+    
+    if (length(trackdf$TRACK_ID) == 1) {
+      trackdf$TRACK_ID[1] = "None"
+    }
+    if (trackdf$TRACK_ID[1] == "None") {
+      for (x in 1:length(trackdf$EXP)) {
+        firstburst = c(firstburst, trackdf$TIME_MINS[x])
+        if (trackdf$TIME_MINS[x] <= 120.0) {
+          burstduracute = c(burstduracute, trackdf$DURATION[x])
+        }
+        if (trackdf$TIME_MINS[x] > 120.0) {
+          burstdurchron = c(burstdurchron, trackdf$DURATION[x])
+        }
+      }
+    }
+
+#Deal with non-"None" tracks
+    else{
+      burstsintrack = 1
+      for (w in 1:(length(trackdf$EXP)-1)) {
+        if (trackdf$FRAME[w] < (trackdf$FRAME[w+1]-gap)) {
+          burstsintrack = burstsintrack + 1
+        }
+      }
+      
+#Deal with single multi-point burst tracks
+      if (burstsintrack == 1) {
+        firstburst = c(firstburst, trackdf$TIME_MINS[1])
+        if (trackdf$TIME_MINS[1] <= 120.0) {
+          burstduracute = c(burstduracute, (trackdf$DURATION[1] * length(trackdf$EXP)))
+        }
+        if (trackdf$TIME_MINS[1] > 120.0) {
+          burstdurchron = c(burstdurchron, (trackdf$DURATION[1] * length(trackdf$EXP)))
+        }
+            
+      }
+      
+#Deal with multi-burst tracks
+      else{
+        #monitoring variables:
+        #prevburstoff
+        #nextburststarttemp
+        #burststoptemp
+        #burststarttemp
+        burstdurtemp = 1
+        prevburstoff = 0
+        burststarttemp = trackdf$TIME_MINS[1]
+        firstburst = c(firstburst, trackdf$TIME_MINS[1])
+        for (v in 1:(length(trackdf$EXP)-1)) {
+          if (trackdf$FRAME[v] < (trackdf$FRAME[v+1]-gap)) {
+            burststoptemp = trackdf$TIME_MINS[v] + trackdf$DURATION[v]
+            nextburststarttemp = trackdf$TIME_MINS[v+1]
+            if (burststarttemp <= 120.0) {
+              burstduracute = c(burstduracute, (burststoptemp - burststarttemp))
+              postoffduracute = c(postoffduracute, (nextburststarttemp - burststoptemp))
+              preonduracute = c(preonduracute, (burststarttemp - prevburstoff))
+            }
+            if (burststarttemp > 120.0) {
+              burstdurchron = c(burstdurchron, (burststoptemp - burststarttemp))
+              postoffdurchron = c(postoffdurchron, (nextburststarttemp - burststoptemp))
+              preondurchron = c(preondurchron, (burststarttemp - prevburstoff))
+            }
+            burstdurtemp = 1
+            prevburstoff = burststoptemp
+            burststarttemp = nextburststarttemp
+            if ((v+1) == length(trackdf$EXP)) {
+              burststoptemp = burststarttemp + trackdf$DURATION[v]
+              if (burststarttemp <= 120.0) {
+                burstduracute = c(burstduracute, (burststoptemp - burststarttemp))
+                preonduracute = c(preonduracute, (burststarttemp - prevburstoff))
+              }
+              if (burststarttemp > 120.0) {
+                burstdurchron = c(burstdurchron, (burststoptemp - burststarttemp))
+                preondurchron = c(preondurchron, (burststarttemp - prevburstoff))
+              }
+              
+            }
+          }
+          else{
+            if ((v+1) == length(trackdf$EXP)) {
+              burststoptemp = trackdf$TIME_MINS[v+1] + trackdf$DURATION[v+1]
+              if (burststarttemp <= 120.0) {
+                burstduracute = c(burstduracute, (burststoptemp - burststarttemp))
+                preonduracute = c(preonduracute, (burststarttemp - prevburstoff))
+              }
+              if (burststarttemp > 120.0) {
+                burstdurchron = c(burstdurchron, (burststoptemp - burststarttemp))
+                preondurchron = c(preondurchron, (burststarttemp - prevburstoff))
+              }
+            }
+            
+          }
+            
+          
+          
+          
+        }
+        
+      }
+      
+    }
+  }
+}
+    
+
+          
+      
+    
+  
+
+
+```
+
+```{r}
+print(firstburst)
+print(burstduracute)
+print(burstdurchron)
+print(preonduracute)
+print(preondurchron)
+print(postoffduracute)
+print(postoffdurchron)
+```
+
+

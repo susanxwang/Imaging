@@ -1,0 +1,312 @@
+```{r}
+#this notebook contains several scripts
+#the first is only applicable for alpha and difco (both log and non-log), but will give both brief and extended compilation files
+#a script below that will compile only the "brief" format (i.e. single row characterizing entire track), but will compile alpha, difco, durations, and radius of confinement
+
+
+```
+
+
+
+
+```{r}
+
+
+library(dplyr)
+library(readr)
+library(tibble)
+library(stringr)
+
+library(ggplot2)
+library(Hmisc)
+
+binnum = 10
+
+
+z.test2sam = function(a, b, var.a, var.b){
+   n.a = length(a)
+   n.b = length(b)
+   zeta = (mean(a) - mean(b)) / (sqrt(var.a/n.a + var.b/n.b))
+   return(zeta)
+}
+
+#parentdir = 'F:/AIC_MFM_2019/20191109/save_redgreencombine/almostgood/msd_merge/'
+#parentdir = 'F:/5-25-20_Nikon_tamox_e2/test/'
+#parentdir = 'F:/5-29-20_Nikon_smt_16hex_e2/test/'
+#parentdir = 'F:/6-5-20_Nikon_smt_sc35_er/yul/test'
+#parentdir = 'C:/Users/Tigetmp/Desktop/test/all_e2/msd_merge'
+#parentdir = 'C:/temp/6-24-20/msd_merge'
+#parentdir = 'C:/temp/6-29-20/msd_merge'
+#parentdir = 'C:/temp/7-10-20/msd_merge'
+#parentdir = 'F:/7-21-20/msd_merge'
+#parentdir = 'E:/nikon_smt/8-14-20/yul/msd_merge'
+#parentdir = 'E:/9-10-20/msd_merge'
+#parentdir = 'E:/9-2-20/msd_merge'
+#parentdir = 'E:/Nikon_Processed_Data/9-16-20/msd_merge'
+#parentdir = 'C:/Users/Tigetmp/Desktop/msd_merge/all_slices'
+#parentdir = 'C:/Users/Tigetmp/Desktop/msd_merge/individ_slices'
+#parentdir = 'E:/smt/msd_merge2/10-30-20_matrin_slim_idr'
+#parentdir = 'E:/smt/msd_merge2/11-04-20_matrin_pbox'
+#parentdir = 'E:/smt/msd_merge2/11-06-20_matrin_118S'
+#parentdir = 'E:/smt/msd_merge2/11-10-20_matrin_2S'
+#parentdir = 'E:/smt/msd_merge/09_24_20_sc35_idr'
+#parentdir = 'E:/smt/msd_merge/10-05-20_sc35_pbox'
+#parentdir = 'E:/smt/msd_merge/10-07-20_sc35_slim'
+#parentdir = 'E:/smt/msd_merge/10-09-20_sc35_118S'
+#parentdir = 'E:/smt/msd_merge/10-12-20_sc35_2S'
+#parentdir = 'E:/smt/msd_merge2/all_matrin_wt'
+#parentdir = 'E:/smt/msd_merge/all_sc35_wt'
+#parentdir = 'E:/smt/new_msd_merge'
+parentdir = 'C:/Users/Tigetmp/Desktop/temp/smt/msd_merge_pg_d150170_1000framelim'
+
+#get folder
+dirlistfull = list.dirs(path = parentdir, full.names = TRUE, recursive = FALSE)
+dirlistshort = list.dirs(path = parentdir, full.names = FALSE, recursive = FALSE)
+
+comblistfull = vector(mode = "list")
+comblistshort = vector(mode = "list")
+
+
+#get files into a list
+for (z in 1:length(dirlistfull)) 
+  {
+      filelisttemp = list.files(dirlistfull[z], full.names = TRUE)
+      filelisttemp = filelisttemp[lapply(filelisttemp,function(x) length(grep("desktop.ini",x,value=FALSE))) == 0]
+      comblistfull = append(comblistfull, list(filelisttemp))
+  }
+
+for (z in 1:length(dirlistfull)) 
+  {
+      filelisttemp = list.files(dirlistfull[z], full.names = FALSE)
+      filelisttemp = filelisttemp[lapply(filelisttemp,function(x) length(grep("desktop.ini",x,value=FALSE))) == 0]
+      comblistshort = append(comblistshort, list(filelisttemp))
+  }
+
+
+
+masterdf = data.frame()
+masterdf_brief = data.frame()
+masterdf_dispn = data.frame()
+
+
+cellcountvec = vector()
+cellnamevec = vector(mode = 'character') 
+
+cellcount = 1
+
+#main file scanning loop
+for (z in 1:length(comblistfull)) 
+  {
+      for (y in 1:length(comblistfull[[z]])) 
+      {
+      
+        testdf = read_csv(comblistfull[[z]][[y]])
+        
+       
+        
+        
+        testdf_difalph = select(testdf, FRAME, FRAMES_IN_TRACK, MEAN_INTENSITY02, MEAN_INTENSITY03, DIFCO, ALPHA, DIFCOLOG, ALPHALOG, DISP1, DEGREENORM,  XNORMDISP, YNORMDISP)
+#       testdf_difalph = testdf_difalph[!is.na(testdf_difalph$DIFCO),]
+        testdf_difalph = na.omit(testdf_difalph, cols='DIFCO')
+        testdf_difalph = mutate(testdf_difalph, CONDITION = dirlistshort[z])
+        testdf_difalph = mutate(testdf_difalph, CELLCNT = cellcount)
+        
+        masterdf = rbind(masterdf, testdf_difalph)
+        
+        
+        
+        
+        testdf_difalph_dispn = select(testdf, FRAME, FRAMES_IN_TRACK, MEAN_INTENSITY02, MEAN_INTENSITY03, DISPN)
+#       testdf_difalph = testdf_difalph[!is.na(testdf_difalph$DIFCO),]
+        testdf_difalph_dispn = na.omit(testdf_difalph_dispn, cols='DISPN')
+        testdf_difalph_dispn = mutate(testdf_difalph_dispn, CONDITION = dirlistshort[z])
+        testdf_difalph_dispn = mutate(testdf_difalph_dispn, CELLCNT = cellcount)
+        
+        masterdf_dispn = rbind(masterdf_dispn, testdf_difalph_dispn)
+        
+        
+        
+        
+        
+        testdf_difalph_brief = select(testdf, FRAME, FRAMES_IN_TRACK, MEAN_INTENSITY02, MEAN_INTENSITY03, DIFCO_SING, ALPHA_SING, DIFCOLOG_SING, ALPHALOG_SING, DISPN, DISP1, DEGREENORM,  XNORMDISP, YNORMDISP)
+#       testdf_difalph = testdf_difalph[!is.na(testdf_difalph$DIFCO),]
+        testdf_difalph_brief = na.omit(testdf_difalph_brief, cols='DIFCO_SING')
+        testdf_difalph_brief = mutate(testdf_difalph_brief, CONDITION = dirlistshort[z])
+        testdf_difalph_brief = mutate(testdf_difalph_brief, CELLCNT = cellcount)
+        
+        masterdf_brief = rbind(masterdf_brief, testdf_difalph_brief)
+        
+        
+
+        
+        cellcountvec = c(cellcountvec, cellcount)
+        cellnamevec = c(cellnamevec, comblistshort[[z]][[y]])
+        
+        cellcount = cellcount + 1
+      }
+}
+
+legenddf = data.frame(CELLNUM = cellcountvec, CELLNAME = cellnamevec)
+
+write.csv(legenddf, file = str_c(parentdir,'legend.csv'))
+
+write.csv(masterdf, file = str_c(parentdir,'master.csv'))
+
+write.csv(masterdf_dispn, file = str_c(parentdir,'master_dispn.csv'))
+
+write.csv(masterdf_brief, file = str_c(parentdir,'master_brief.csv'))
+
+
+
+
+```
+
+```{r}
+comblistfull = comblistfull[lapply(comblistfull,function(x) length(grep("desktop.ini",x,value=FALSE))) == 0]
+comblistshort = comblistshort[lapply(comblistshort,function(x) length(grep("desktop.ini",x,value=FALSE))) == 0]
+```
+```{r}
+#print(comblistfull[[z]][[y]])
+print(comblistfull)
+```
+
+```{r}
+library(dplyr)
+library(readr)
+library(tibble)
+library(stringr)
+
+library(ggplot2)
+library(Hmisc)
+
+temptestdf = read_csv('E:/smt/msd_merge_duration_radconf/1h_idr_9-24-20/20200924_175138_448__Channel405-TIRF_Seq0001_IDR_shER_E2+1h_1.nd2R1364B20897.tifspot_in_tracks.csv')
+```
+
+```{r}
+#script for scanning msd_merge files with the duration and radius of confinement (in addition to the alpha and difco) and compiling based on the "brief" protocol (i.e. a single row characterizing the entire track), and also adding in the average displacement and average rose/degree
+
+library(dplyr)
+library(readr)
+library(tibble)
+library(stringr)
+
+library(ggplot2)
+library(Hmisc)
+
+binnum = 10
+
+
+z.test2sam = function(a, b, var.a, var.b){
+   n.a = length(a)
+   n.b = length(b)
+   zeta = (mean(a) - mean(b)) / (sqrt(var.a/n.a + var.b/n.b))
+   return(zeta)
+}
+
+#parentdir = 'F:/AIC_MFM_2019/20191109/save_redgreencombine/almostgood/msd_merge/'
+#parentdir = 'F:/5-25-20_Nikon_tamox_e2/test/'
+#parentdir = 'F:/5-29-20_Nikon_smt_16hex_e2/test/'
+#parentdir = 'F:/6-5-20_Nikon_smt_sc35_er/yul/test'
+#parentdir = 'C:/Users/Tigetmp/Desktop/test/all_e2/msd_merge'
+#parentdir = 'C:/temp/6-24-20/msd_merge'
+#parentdir = 'C:/temp/6-29-20/msd_merge'
+#parentdir = 'C:/temp/7-10-20/msd_merge'
+#parentdir = 'F:/7-21-20/msd_merge'
+#parentdir = 'E:/nikon_smt/8-14-20/yul/msd_merge'
+#parentdir = 'E:/9-10-20/msd_merge'
+#parentdir = 'E:/9-2-20/msd_merge'
+#parentdir = 'E:/Nikon_Processed_Data/9-16-20/msd_merge'
+#parentdir = 'C:/Users/Tigetmp/Desktop/msd_merge/all_slices'
+#parentdir = 'C:/Users/Tigetmp/Desktop/msd_merge/individ_slices'
+#parentdir = 'E:/smt/msd_merge2/10-30-20_matrin_slim_idr'
+#parentdir = 'E:/smt/msd_merge2/11-04-20_matrin_pbox'
+#parentdir = 'E:/smt/msd_merge2/11-06-20_matrin_118S'
+#parentdir = 'E:/smt/msd_merge2/11-10-20_matrin_2S'
+#parentdir = 'E:/smt/msd_merge/09_24_20_sc35_idr'
+#parentdir = 'E:/smt/msd_merge/10-05-20_sc35_pbox'
+#parentdir = 'E:/smt/msd_merge/10-07-20_sc35_slim'
+#parentdir = 'E:/smt/msd_merge/10-09-20_sc35_118S'
+#parentdir = 'E:/smt/msd_merge/10-12-20_sc35_2S'
+#parentdir = 'E:/smt/msd_merge2/all_matrin_wt'
+#parentdir = 'E:/smt/msd_merge/all_sc35_wt'
+#parentdir = 'E:/smt/new_msd_merge'
+#parentdir = 'C:/Users/Tigetmp/Desktop/temp/smt/msd_merge_pg_d150170_1000framelim'
+#parentdir = 'E:/smt/msd_merge_duration_radconf'
+parentdir = 'C:/User/Tom/smt/folderscan'
+
+#get folder
+dirlistfull = list.dirs(path = parentdir, full.names = TRUE, recursive = FALSE)
+dirlistshort = list.dirs(path = parentdir, full.names = FALSE, recursive = FALSE)
+
+comblistfull = vector(mode = "list")
+comblistshort = vector(mode = "list")
+
+
+#get files into a list
+for (z in 1:length(dirlistfull)) 
+  {
+      filelisttemp = list.files(dirlistfull[z], full.names = TRUE)
+      filelisttemp = filelisttemp[lapply(filelisttemp,function(x) length(grep("desktop.ini",x,value=FALSE))) == 0]
+      comblistfull = append(comblistfull, list(filelisttemp))
+  }
+
+for (z in 1:length(dirlistfull)) 
+  {
+      filelisttemp = list.files(dirlistfull[z], full.names = FALSE)
+      filelisttemp = filelisttemp[lapply(filelisttemp,function(x) length(grep("desktop.ini",x,value=FALSE))) == 0]
+      comblistshort = append(comblistshort, list(filelisttemp))
+  }
+
+
+
+masterdf = data.frame()
+masterdf_brief = data.frame()
+masterdf_dispn = data.frame()
+
+
+cellcountvec = vector()
+cellnamevec = vector(mode = 'character') 
+
+cellcount = 1
+
+#main file scanning loop
+for (z in 1:length(comblistfull)) 
+  {
+      for (y in 1:length(comblistfull[[z]])) 
+      {
+      
+        testdf = read_csv(comblistfull[[z]][[y]])
+        
+        testdf_difalph_brief = select(testdf, FRAME, FRAMES_IN_TRACK, MEAN_INTENSITY02, MEAN_INTENSITY03, DIFCO_SING, ALPHA_SING, DIFCOLOG_SING, ALPHALOG_SING, DISPN, DISP1, DEGREENORM,  XNORMDISP, YNORMDISP, RADIUS_CONFINEMENT_SING, DIFCO_RADIUSCONF_SING, FIX250, FIX500, FIX750, FIX1000, FIX1500, ROLL250, ROLL500, ROLL750, ROLL1000, ROLL1500, AVERAGE_DISPLACEMENT, AVERAGE_ROSE)
+#       testdf_difalph = testdf_difalph[!is.na(testdf_difalph$DIFCO),]
+        testdf_difalph_brief = na.omit(testdf_difalph_brief, cols='DIFCO_SING')
+        testdf_difalph_brief = na.omit(testdf_difalph_brief, cols='RADIUS_CONFINEMENT_SING')
+        testdf_difalph_brief = mutate(testdf_difalph_brief, CONDITION = dirlistshort[z])
+        testdf_difalph_brief = mutate(testdf_difalph_brief, CELLCNT = cellcount)
+        
+        masterdf_brief = rbind(masterdf_brief, testdf_difalph_brief)
+        
+        
+
+        
+        cellcountvec = c(cellcountvec, cellcount)
+        cellnamevec = c(cellnamevec, comblistshort[[z]][[y]])
+        
+        cellcount = cellcount + 1
+        
+      }
+}
+
+legenddf = data.frame(CELLNUM = cellcountvec, CELLNAME = cellnamevec)
+
+write.csv(legenddf, file = str_c(parentdir,'legend.csv'))
+
+write.csv(masterdf_brief, file = str_c(parentdir,'master_brief.csv'))
+
+        
+
+
+```
+
+
+
