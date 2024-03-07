@@ -1,0 +1,13 @@
+selectWindow("burst_singcells_gblur12");
+close();
+selectWindow("burst_singcells_gblur6");
+close();
+selectWindow("blank_orig");
+close();
+selectWindow("burst_singcells");
+close();
+selectWindow("burst_orig_nucfinddist-watershed");
+selectWindow("Result of burst_singcells_gblur6");
+close();
+roiManager("Deselect");
+roiManager("Delete");
