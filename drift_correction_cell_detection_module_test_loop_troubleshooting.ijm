@@ -17,18 +17,6 @@ SaveDir = "C:/User/Tom/9-19-21/drift_correct/save/";
 RedDir = "E:/drift_correction/zproj/";
 SaveDir = "E:/drift_correction/save/";
 
-
-RedDir = "C:/User/Tom/drift_correction/zproj_only7/";
-SaveDir = "C:/User/Tom/drift_correction/save/";
-
-RedDir = "C:/User/Tom/fast_dna_movies_8_27_8_30_9_22/pre_drift_test/";
-SaveDir = "C:/User/Tom/fast_dna_movies_8_27_8_30_9_22/drift_test_save/";
-
-RedDir = "C:/User/Tom/fast_dna_movies_8_27_8_30_9_22/segmented/";
-SaveDir = "C:/User/Tom/fast_dna_movies_8_27_8_30_9_22/drift_corrected/";
-
-run("Options...", "iterations=1 count=1 black do=Nothing");
-
 //setBatchMode(true);
 
 //FileListGreen = getFileList(GreenDir);
@@ -54,8 +42,8 @@ for(i=0; i<FileListRed.length; i++) {
 //		uncomment line below if not already z-projected; also make sure the z-proj green		
 //		run("Z Project...", "projection=[Sum Slices] all");
 		run("Split Channels");
-		selectWindow("C1-orig");
-//		selectWindow("C2-orig");
+//		selectWindow("C1-orig");
+		selectWindow("C2-orig");
 		rename("zproj");
 		run("Duplicate...", "title=zproj_blur duplicate");
 		run("Gaussian Blur...", "sigma=6 stack");
@@ -132,8 +120,7 @@ for(i=0; i<FileListRed.length; i++) {
 				changeValues(offfiltval, 65535, offfiltval);
 				run("Select None");
 
-//				uppermedval = 1.5 * medval;
-				uppermedval = 2 * medval;
+				uppermedval = 1.5 * medval;
 				uppermedval = toString(uppermedval);
 				uppermedval = parseFloat(uppermedval);
 
@@ -146,8 +133,8 @@ for(i=0; i<FileListRed.length; i++) {
 
 
 
-		run("Merge Channels...", "c1=zproj_blur c2=zproj c3=C2-orig create");
-//		run("Merge Channels...", "c1=zproj_blur c2=zproj c3=C1-orig create");
+//		run("Merge Channels...", "c1=zproj_blur c2=zproj c3=C2-orig create");
+		run("Merge Channels...", "c1=zproj_blur c2=zproj c3=C1-orig create");
 		rename("tempmerge");
 
 //		run("Correct 3D drift", "channel=1 multi_time_scale sub_pixel only=0 lowest=1 highest=1 max_shift_x=130.000000000 max_shift_y=130.000000000 max_shift_z=10");

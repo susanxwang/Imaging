@@ -1,0 +1,12 @@
+run("Distance Transform Watershed 3D", "distances=[Borgefors (3,4,5)] output=[16 bits] normalize dynamic=8 connectivity=6");
+run("3D Manager");
+Ext.Manager3D_AddImage();
+run("Duplicate...", "duplicate");
+run("Select All");
+setBackgroundColor(0, 0, 0);
+run("Clear", "stack");
+run("Select None");
+Ext.Manager3D_Select(1);
+Ext.Manager3D_FillStack(0, 0, 0);
+Ext.Manager3D_Measure3D(1,"Vol",quantif);
+print(quantif);
