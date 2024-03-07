@@ -1,0 +1,263 @@
+```{r}
+library(nnet)
+
+library(dplyr)
+library(readr)
+library(tibble)
+library(stringr)
+
+masterdf = read.csv("C:/Users/Tigetmp/Desktop/temp/smt/8-24-21 newcompanalysis/method1_final_cull_balance.csv")
+
+#masterdf = filter(masterdf, Condition.2 != "m")
+
+#testdf = select(masterdf, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT, AVERAGE_ROSE)
+testdf = select(masterdf, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT, Condition.2)
+
+testdf$Condition3 = relevel(testdf$Condition.2, ref = "m")
+test = multinom(Condition3 ~ DIFCOLOG_SING_LOG10 + ALPHALOG_SING + RADIUS_CONFINEMENT_SING_LOG10 + DIFCO_RADIUSCONF_SING_LOG10 + FIX250_LOG10 + AVERAGE_DISPLACEMENT, data = testdf)
+
+
+```
+
+```{r}
+summary(test)
+```
+
+```{r}
+library(nnet)
+
+library(dplyr)
+library(readr)
+library(tibble)
+library(stringr)
+
+masterdf = read.csv("C:/Users/Tigetmp/Desktop/temp/smt/8-24-21 newcompanalysis/method1_final_cull_balance.csv")
+
+testdf2 = select(masterdf, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT)
+
+testdf2 = as.data.frame(scale(testdf2))
+
+testdf2$Condition.2 = masterdf$Condition.2
+
+testdf2$Condition3 = relevel(testdf2$Condition.2, ref = "17h")
+test2 = multinom(Condition3 ~ DIFCOLOG_SING_LOG10 + ALPHALOG_SING + RADIUS_CONFINEMENT_SING_LOG10 + DIFCO_RADIUSCONF_SING_LOG10 + FIX250_LOG10 + AVERAGE_DISPLACEMENT, data = testdf2)
+
+
+```
+
+```{r}
+summary(test2)
+```
+
+```{r}
+library(nnet)
+
+library(dplyr)
+library(readr)
+library(tibble)
+library(stringr)
+
+masterdf = read.csv("C:/Users/Tigetmp/Desktop/temp/smt/8-24-21 newcompanalysis/method1_final_cull_balance.csv")
+
+#masterdf = filter(masterdf, Condition.2 != "m")
+
+testdf3 = select(masterdf, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT)
+
+testdf3 = as.data.frame(scale(testdf3))
+
+testdf3$Condition.2 = masterdf$Condition.2
+
+testdf3$Condition3 = relevel(testdf3$Condition.2, ref = "1h")
+test3 = multinom(Condition3 ~ DIFCOLOG_SING_LOG10 + ALPHALOG_SING + RADIUS_CONFINEMENT_SING_LOG10 + DIFCO_RADIUSCONF_SING_LOG10 + FIX250_LOG10 + AVERAGE_DISPLACEMENT, data = testdf3)
+
+
+```
+
+```{r}
+summary(test3)
+```
+
+```{r}
+predvector = predict(test3, newdata = testdf3)
+testdf3$PREDVEC = predvector
+write.csv(testdf3, file = 'C:/Users/Tigetmp/Desktop/logregtest.csv')
+
+```
+
+```{r}
+library(nnet)
+
+library(dplyr)
+library(readr)
+library(tibble)
+library(stringr)
+
+masterdf = read.csv("C:/Users/Tigetmp/Desktop/temp/smt/8-24-21 newcompanalysis/method1_final_cull_balance.csv")
+
+#masterdf = filter(masterdf, Condition.2 != "m")
+
+testdf4 = select(masterdf, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT)
+
+testdf4 = as.data.frame(scale(testdf4))
+
+testdf4$Condition.2 = masterdf$Condition.2
+
+#testdf3$Condition3[(testdf3$Condition3 == "1h") | (testdf3$Condition3 == "17h")] = "p"
+testdf4$Condition4 = as.character(testdf4$Condition.2)
+testdf4$Condition4[testdf4$Condition4 == "1h"] = "p"
+testdf4$Condition4[testdf4$Condition4 == "17h"] = "p"
+testdf4$Condition4 = as.factor(testdf4$Condition4)
+
+testdf4$Condition3 = relevel(testdf4$Condition4, ref = "m")
+
+test4 = multinom(Condition3 ~ DIFCOLOG_SING_LOG10 + ALPHALOG_SING + RADIUS_CONFINEMENT_SING_LOG10 + DIFCO_RADIUSCONF_SING_LOG10 + FIX250_LOG10 + AVERAGE_DISPLACEMENT, data = testdf4)
+
+testdf4$PRED = predict(test4, newdata = testdf4)
+#write.csv(testdf4, file = 'C:/Users/Tigetmp/Desktop/logregtest2.csv')
+
+masterdf$PREPPLUSMINCLUST = testdf4$PRED
+
+masterdf2 = filter(masterdf, PREPPLUSMINCLUST != "m")
+masterdf2 = filter(masterdf2, Condition.2 != "m")
+
+testdf5 = select(masterdf2, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT)
+
+testdf5 = as.data.frame(scale(testdf5))
+
+testdf5$Condition.2 = masterdf2$Condition.2
+
+testdf5$Condition3 = relevel(testdf5$Condition.2, ref = "1h")
+
+
+#FULL VERSION WITH ALL VARIABLES
+test5 = multinom(Condition3 ~ DIFCOLOG_SING_LOG10 + ALPHALOG_SING + RADIUS_CONFINEMENT_SING_LOG10 + DIFCO_RADIUSCONF_SING_LOG10 + FIX250_LOG10 + AVERAGE_DISPLACEMENT, data = testdf5)
+
+#PARTIAL VERSION ONLY INCLUDING VARIABLES WITH AT OR ABOVE .1
+#test5 = multinom(Condition3 ~ DIFCOLOG_SING_LOG10 + ALPHALOG_SING + DIFCO_RADIUSCONF_SING_LOG10  + AVERAGE_DISPLACEMENT, data = testdf5)
+
+testdf5$PRED = predict(test5, newdata = testdf5)
+write.csv(testdf5, file = 'C:/Users/Tigetmp/Desktop/logregtest4_noradvars_or_durbind.csv')
+```
+
+```{r}
+summary(test5)
+```
+
+```{r}
+#apply above methodologies to new test dataset
+#first calculate the scaling values for both the first and second scaling operations
+#scale the first dataset, to calculate and remove both m categories from the original dataset
+#scale the second dataset and apply the logistic regression to it
+
+
+#calculate first scaling vectors
+testdf6 = select(masterdf, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT)
+
+centervec1 = vector(mode = "double", length = ncol(testdf6))
+scalevec1 = vector(mode = "double", length = ncol(testdf6))
+
+for (i in 1:ncol(testdf6)) {
+  centervec1[i] = (mean(testdf6[,i]))
+}
+
+for (i in 1:ncol(testdf6)) {
+  testdf6[,i] = testdf6[,i] - centervec1[i]
+}
+
+
+for (i in 1:ncol(testdf6)) {
+  scalevec1[i] = (sd(testdf6[,i]))
+}
+
+#below not technically needed, as I'm just trying to get the scaling vectors, not actually re-create a scaled testdf
+for (i in 1:ncol(testdf6)) {
+  testdf6[,i] = testdf6[,i]/scalevec1[i]
+}
+
+
+
+#calculate second scaling vectors
+testdf7 = select(masterdf2, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT)
+
+centervec2 = vector(mode = "double", length = ncol(testdf6))
+scalevec2 = vector(mode = "double", length = ncol(testdf6))
+
+for (i in 1:ncol(testdf7)) {
+  centervec2[i] = (mean(testdf7[,i]))
+}
+
+for (i in 1:ncol(testdf7)) {
+  testdf7[,i] = testdf7[,i] - centervec2[i]
+}
+
+
+for (i in 1:ncol(testdf7)) {
+  scalevec2[i] = (sd(testdf7[,i]))
+}
+
+#below not technically needed, as I'm just trying to get the scaling vectors, not actually re-create a scaled testdf
+for (i in 1:ncol(testdf7)) {
+  testdf7[,i] = testdf7[,i]/scalevec2[i]
+}
+
+
+#calculate "m" category from new test dataset and then exclude the "m" categories
+masterdf3 = read.csv("C:/Users/Tigetmp/Desktop/temp/smt/8-24-21 newcompanalysis/outlier_filtered_and_logged_data_all_sets_ksvm_formatted.csv")
+
+
+testdf8 = select(masterdf3, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT)
+
+for (i in 1:ncol(testdf8)) {
+  testdf8[,i] = testdf8[,i] - centervec1[i]
+  print(centervec1[i])
+}
+
+for (i in 1:ncol(testdf8)) {
+  testdf8[,i] = testdf8[,i] / scalevec1[i]
+  print(scalevec1[i])
+}
+
+
+testdf8$Condition.2 = masterdf3$Condition.2
+
+testdf8$Condition4 = as.character(testdf8$Condition.2)
+testdf8$Condition4[testdf8$Condition4 == "1h"] = "p"
+testdf8$Condition4[testdf8$Condition4 == "17h"] = "p"
+testdf8$Condition4 = as.factor(testdf8$Condition4)
+
+testdf8$PRED = predict(test4, newdata = testdf8)
+
+masterdf3$PREPPLUSMINCLUST = testdf8$PRED
+
+write.csv(masterdf3, file = 'C:/Users/Tigetmp/Desktop/LOGREG_MVP_PREDCLUST.csv')
+
+masterdf4 = filter(masterdf3, PREPPLUSMINCLUST != "m")
+
+
+testdf9 = select(masterdf4, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT)
+
+
+for (i in 1:ncol(testdf9)) {
+  testdf9[,i] = testdf9[,i] - centervec2[i]
+  print(centervec2[i])
+}
+
+for (i in 1:ncol(testdf9)) {
+  testdf9[,i] = testdf9[,i] / scalevec2[i]
+  print(scalevec2[i])
+}
+
+testdf9$Condition.2 = masterdf4$Condition.2
+
+testdf9$PRED = predict(test5, newdata = testdf9)
+masterdf4$PREPPLUSMINCLUST = testdf9$PRED
+
+write.csv(masterdf4, file = 'C:/Users/Tigetmp/Desktop/LOGREG_1HV17H_PREDCLUST.csv')
+```
+```{r}
+write.csv(testdf8, file = 'C:/Users/Tigetmp/Desktop/logregtest4_temptest.csv')
+
+```
+
+
+

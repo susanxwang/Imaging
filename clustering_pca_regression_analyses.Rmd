@@ -1,0 +1,57 @@
+```{r}
+
+library(dplyr)
+library(readr)
+library(tibble)
+library(stringr)
+
+library(ggplot2)
+library(Hmisc)
+
+library(factoextra)
+library(NbClust)
+
+library(tidyverse)  
+library(gridExtra)
+
+
+masterdf = read.csv("C:/Users/Tigetmp/Desktop/temp/smt/8-24-21 newcompanalysis/method1_final_cull_balance.csv")
+
+```
+
+```{r}
+
+testdf = select(testdf, DIFCOLOG_SING_LOG10, ALPHALOG_SING, RADIUS_CONFINEMENT_SING_LOG10, DIFCO_RADIUSCONF_SING_LOG10, FIX250_LOG10, AVERAGE_DISPLACEMENT, AVERAGE_ROSE)
+
+
+```
+
+```{r}
+testdf = filter(masterdf, Condition.2 != "m")
+```
+
+
+```{r}
+pca_result <- prcomp(testdf, scale = TRUE)
+```
+
+```{r}
+names(pca_result)
+pca_result$center
+pca_result$scale
+pca_result$rotation
+
+
+```
+```{r}
+library(tidyverse) 
+biplot(pca_result, scale = 0)
+```
+```{r}
+(pca_result$sdev)^2/sum((pca_result$sdev)^2)
+
+```
+
+
+
+

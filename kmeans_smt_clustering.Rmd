@@ -1,0 +1,121 @@
+```{r}
+
+masterdf = read.csv("E:/smt/msd_merge/all_sc35_wtmaster_brief.csv")
+
+
+```
+
+```{r}
+library(dplyr)
+library(readr)
+library(tibble)
+library(stringr)
+
+library(ggplot2)
+library(Hmisc)
+
+
+```
+
+```{r}
+testdf = mutate(masterdf, DISTANCE = MEAN_INTENSITY03-MEAN_INTENSITY02)
+```
+
+```{r}
+testdf = select(testdf, DIFCOLOG, ALPHALOG, CONDITION, CELLCNT, DISTANCE)
+```
+
+```{r}
+filtertestdf = filter(testdf, DIFCOLOG_SING < .1)
+filtertestdf = filter(filtertestdf, DIFCOLOG_SING > 0)
+filtertestdf = filter(filtertestdf, ALPHALOG_SING > -1)
+filtertestdf = filter(filtertestdf, ALPHALOG_SING < 2)
+```
+
+
+```{r}
+kmeansdf = select(filtertestdf, DIFCOLOG_SING, ALPHALOG_SING)
+```
+
+
+```{r}
+write.csv(testdf, "E:/smt/msd_merge/all_sc35_wtmaster_abridged.csv")
+```
+
+```{r}
+
+library(factoextra)
+library(NbClust)
+
+```
+
+
+```{r}
+kmeansdf = select(testdf, DIFCOLOG, ALPHALOG)
+```
+
+```{r}
+kmeansdf = scale(kmeansdf)
+```
+
+```{r}
+#NbClust(data = sampkmeansdf, diss = NULL, distance = "euclidean", min.nc = 2, max.nc = 10, method = "kmeans")
+
+res = NbClust(data = sampkmeansdf, diss = NULL, distance = "euclidean", min.nc = 2, max.nc = 10, method = "kmeans", index = "all", alphaBeale = 0.1)
+```
+
+```{r}
+#res$All.index
+#res$Best.nc
+#res$Best.partition
+
+write.csv(res$Best.nc, file = 'C:/Users/Tigetmp/Desktop/kmeans_bestpartition_filtered.csv')
+
+```
+
+
+```{r}
+fviz_nbclust(sampkmeansdf, kmeans, method = "wss") + geom_vline(xintercept = 4, linetype = 2)+ labs(subtitle = "Elbow method")
+```
+
+```{r}
+fviz_nbclust(sampkmeansdf, kmeans, method = "silhouette")+  labs(subtitle = "Silhouette method")
+```
+
+
+```{r}
+set.seed(123)
+fviz_nbclust(sampkmeansdf, kmeans, nstart = 25,  method = "gap_stat", nboot = 50)+labs(subtitle = "Gap statistic method")
+```
+
+
+
+```{r}
+sampkmeansdf = kmeansdf[sample(nrow(kmeansdf), 10000),]
+```
+
+```{r}
+set.seed(123)
+result = kmeans(kmeansdf, 7, nstart = 25)
+```
+
+```{r}
+resultdf = as.data.frame(filtertestdf)
+resultdf$CLUSTER = result$cluster
+
+write.csv(resultdf, file = 'C:/Users/Tigetmp/Desktop/kmeans_clustering_er_wt_all_filt.csv')
+```
+
+```{r}
+resultdf$TOMBIN = binvec
+```
+
+
+
+
+
+
+
+
+
+
