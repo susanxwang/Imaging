@@ -1,0 +1,846 @@
+```{r}
+library(dplyr)
+library(readr)
+library(tibble)
+library(stringr)
+
+#parentdir = 'F:/6-5-20_Nikon_smt_sc35_er/yul/'
+#parentdir = 'C:/Users/Tigetmp/Desktop/test/all_e2/'
+#parentdir = 'F:/6-24-20/'
+#parentdir = 'C:/temp/'
+#parentdir = 'E:/7-29-21_DNA_fast_smt-like/'
+#parentdir = 'E:/smt/newtif_spots/'
+#parentdir = 'C:/User/Tom/smt/'
+#parentdir = 'D:/Nikon_Processed_Data/6-29-20/'
+#parentdir = 'D:/Nikon_Processed_Data/6-29-20_test/'
+#parentdir = 'D:/Nikon_Processed_Data/6-29-20/'
+#parentdir = 'D:/Nikon_Processed_Data/6-24-20/'
+#parentdir = 'E:/smt_reprocess_12-9-21/'
+#parentdir = 'E:/NIKON/process_031022_031522_medbrd4/'
+parentdir = 'E:/6-6-23-ER_flavo/'
+
+spotslistfull = list.files(str_c(parentdir,'spotsnotdone\\'), full.names = TRUE)
+
+spotslistshort = list.files(str_c(parentdir,'spotsnotdone\\'), full.names = FALSE)
+
+
+
+
+
+#parameters
+#parameters
+#parameters
+
+#number subtracted from frames in tracks to determine the maximum number of dt mean squared displacements to be considered, which effectively is giving the minimum number of replicates for the highest dt mean squared displacement
+min_num_replicates = 3
+
+#dt for displacement calculations
+dispn = 10
+
+#milliseconds per frame
+framerate = 5
+
+
+
+for (i in 1:length(spotslistfull)) 
+{
+  
+testdf = read_tsv(spotslistfull[i])
+
+#remove spots starting before frame 1000
+testdf = filter(testdf, FRAME > 1000)
+
+testdf = testdf %>% group_by(TRACK_ID) %>% filter(n() > 4)
+
+if (length(unique(testdf$TRACK_ID)) < 100) {
+  next
+}
+
+#identify number of spots in each track
+#identify last position of final spot in track
+#create vector of MSD for variable range for each track
+#calculate difco and alpha using linear and non-linear fitting for each track
+
+currenttrack = -1
+
+# newveca = vector(mode = 'double', length = length(testdf$TRACK_ID))
+# newvecb = vector(mode = 'double', length = length(testdf$TRACK_ID))
+# newvecspots = vector(mode = 'double', length = length(testdf$TRACK_ID))
+# newvecframes = vector(mode = 'double', length = length(testdf$TRACK_ID))
+
+
+arepvec = vector()
+brepvec = vector()
+crepvec = vector()
+drepvec = vector()
+erepvec = vector()
+msdrepvec = vector()
+skiprepvec = vector()
+framestartrepvec = vector()
+framedestrepvec = vector()
+
+difcovecs = vector(mode = 'double', length = length(testdf$TRACK_ID))
+difcosinglevecs = rep(NA, length(testdf$TRACK_ID))
+alphavecs = vector(mode = 'double', length = length(testdf$TRACK_ID))
+alphasinglevecs = rep(NA, length(testdf$TRACK_ID))
+logdifcovecs = vector(mode = 'double', length = length(testdf$TRACK_ID))
+logdifcosinglevecs = rep(NA, length(testdf$TRACK_ID))
+logalphavecs = vector(mode = 'double', length = length(testdf$TRACK_ID))
+logalphasinglevecs = rep(NA, length(testdf$TRACK_ID))
+
+
+#initializing vectors for collecting radius of confinement 
+
+difcocirclevecs = vector(mode = 'double', length = length(testdf$TRACK_ID))
+difcocirclesinglevecs = rep(NA, length(testdf$TRACK_ID))
+radconfvecs = vector(mode = 'double', length = length(testdf$TRACK_ID))
+radconfsinglevecs = rep(NA, length(testdf$TRACK_ID))
+
+
+framesintrackvec = vector(mode = 'double', length = length(testdf$TRACK_ID))
+
+dispnvec = vector(mode = 'double', length = length(testdf$TRACK_ID))
+dispskipvec = vector(mode = 'double', length = length(testdf$TRACK_ID))
+
+#for (a in 1:length(testdf$TRACK_ID)) 
+
+#for (a in 7:8) 
+#for (a in 29:96) 
+#for (a in 160:176) 
+#for (a in 280:289)
+#for (a in 321:322)
+#for (a in 1:6)
+#for (a in 1280:1280)
+#for (a in 1:300) 
+for (a in 1:length(testdf$TRACK_ID)) 
+  {
+  if (currenttrack != testdf$TRACK_ID[a]) 
+    {
+    currenttrack = testdf$TRACK_ID[a]
+    
+    b = a
+    
+    #at end of while loop, b = position of last spot in current track + 1
+    while (currenttrack == testdf$TRACK_ID[b]) 
+      {
+      b=b+1
+      if (b > length(testdf$TRACK_ID)) 
+        {
+        break
+        }  
+      }
+    spotsintrack = b-a
+    framesintrack = testdf$FRAME[b-1]-testdf$FRAME[a]+1
+    #msdvec = vector(mode = 'double', length = framesintrack)
+    msdvec = rep(NA,(framesintrack-1))
+    dtvec = rep(NA,(framesintrack-1))
+    
+    #calculate msd for all possible ranges of the track, and then populate the vector of msd values
+    for (c in 1:(framesintrack-min_num_replicates)) 
+      {
+      gooddcount = 0
+      msdvaltemp = NA
+      for (d in 1:(framesintrack-c)) 
+        {
+        if ((a+d-1) > length(testdf$TRACK_ID)) 
+          {
+          break
+          }
+        if (testdf$TRACK_ID[a] != testdf$TRACK_ID[a+d-1]) 
+          {
+          break
+          }
+        
+        #creates 'e', which is an adjustment factor in case a frame is skipped in the track; if there is no frame for a given d and c, that d is skipped
+        skip = 0 
+        for (e in 0:c)
+          {
+            if ((a+d-1+c-e) > length(testdf$TRACK_ID)) 
+              {
+              next
+              }
+            if (((testdf$FRAME[a+d-1] + c) == testdf$FRAME[a+d-1+c-e] ) && ((testdf$TRACK_ID[a+d-1]) == testdf$TRACK_ID[a+d-1+c-e] ) )
+              {
+              break
+              }
+            if (((testdf$FRAME[a+d-1] + c) > testdf$FRAME[a+d-1+c-e] ) && ((testdf$TRACK_ID[a+d-1]) == testdf$TRACK_ID[a+d-1+c-e] ))
+              {
+              skip = 1
+              break
+              }
+          }
+        if (skip == 0) 
+          {
+          msdvaltemp = sum(msdvaltemp , ((testdf$POSITION_X[a+d-1] - testdf$POSITION_X[a+d-1+c-e])^2 + (testdf$POSITION_Y[a+d-1] - testdf$POSITION_Y[a+d-1+c-e])^2) , na.rm = TRUE)
+          #msdvaltemp = sum(msdvaltemp , ((testdf$POSITION_X[a+d-1] - testdf$POSITION_X[a+d-1+c-e])^2 + (testdf$POSITION_Y[a+d-1] - testdf$POSITION_Y[a+d-1+c-e])^2)^(1/2) , na.rm = TRUE)
+          gooddcount = gooddcount + 1
+          }
+        
+        #reporters to make sure everything is working okay  
+        # arepvec = c(arepvec,a)
+        # brepvec = c(brepvec,b)
+        # crepvec = c(crepvec,c)
+        # drepvec = c(drepvec,d)
+        # erepvec = c(erepvec,e)
+        # framestartrepvec = c(framestartrepvec, testdf$FRAME[a+d-1])
+        # framedestrepvec = c(framedestrepvec, testdf$FRAME[a+d-1]+c)
+        # if (skip == 0) 
+        #   {
+        #   msdrepvec = c(msdrepvec, ((testdf$POSITION_X[a+d-1] - testdf$POSITION_X[a+d-1+c-e])^2 + (testdf$POSITION_Y[a+d-1] - testdf$POSITION_Y[a+d-1+c-e])^2)^(1/2))
+        #   }
+        # else 
+        #   {
+        #   msdrepvec = c(msdrepvec, skip)
+        #   }
+        # skiprepvec = c(skiprepvec, skip)
+          
+        }
+#could possibly remove the 'na's and just change all to 0; could then remove the sum statement above and just add, also could remove the !is.na here      
+      if ((!is.na(msdvaltemp)) && (msdvaltemp > 0)) 
+        {
+        msdvec[c]=msdvaltemp/gooddcount
+        dtvec[c]=c*framerate
+        }
+      
+      }
+    
+    logmsdvec = log(msdvec, 2)
+    logdtvec = log(dtvec, 2)
+    
+    msdvec = na.omit(msdvec)
+    dtvec = na.omit(dtvec)
+    logmsdvec = na.omit(logmsdvec)
+    logdtvec = na.omit(logdtvec)
+    
+    #nonlinear fitting
+    fitdf = data.frame(DT = dtvec, MSD = msdvec)
+    fitlogdf = data.frame(DT = logdtvec, MSD = logmsdvec)
+    
+    fittest = tryCatch(nls(MSD ~ DIFCO * (DT^alpha), data = fitdf, start = list(DIFCO = 0.1, alpha = 1) , control = nls.control(warnOnly = TRUE)), error=function(e) NULL)
+    testnls = tryCatch(summary(fittest), error=function(e) NULL)
+    
+    if(!is.null(fittest) && !is.null(testnls))
+      {
+        fitcoefs = coef(fittest)
+        difcovecs[a] = (as.numeric(fitcoefs[1]))/4
+        difcosinglevecs[a] = (as.numeric(fitcoefs[1]))/4
+        alphavecs[a] = as.numeric(fitcoefs[2])
+        alphasinglevecs[a] = as.numeric(fitcoefs[2])
+      }      else
+      {
+        difcovecs[a] = NA
+        alphavecs[a] = NA
+      }
+    
+    
+    
+    
+    #fitting of radius of confinement
+    radconffitdf = data.frame(DT = dtvec, MSD = msdvec)
+    radconffittest = tryCatch(nls(MSD ~ (RADIUSCONF^2) * (1-exp((-4*RADDIFCO*DT)/(RADIUSCONF^2))), data = radconffitdf, start = list(RADDIFCO = 0.001, RADIUSCONF = 0.1) , control = nls.control(warnOnly = TRUE)), error=function(e) NULL)
+    testradconfnls = tryCatch(summary(radconffittest), error=function(e) NULL)
+    
+    if(!is.null(radconffittest) && !is.null(testradconfnls))
+      {
+        radconffitcoefs = coef(radconffittest)
+        difcocirclevecs[a] = (as.numeric(radconffitcoefs[1]))
+        difcocirclesinglevecs[a] = (as.numeric(radconffitcoefs[1]))
+        radconfvecs[a] = as.numeric(radconffitcoefs[2])
+        radconfsinglevecs[a] = as.numeric(radconffitcoefs[2])
+      }      else
+      {
+        difcocirclevecs[a] = NA
+        radconfvecs[a] = NA
+      }
+    
+    
+    
+    
+    
+    
+    
+    logfittest = tryCatch(lm(MSD~DT, data = fitlogdf), error=function(e) NULL)
+    testlognls = tryCatch(summary(logfittest), error=function(e) NULL)
+
+    if(!is.null(logfittest) && !is.null(testlognls))
+      {
+        logfitcoefs = coef(logfittest)
+        logdifcovecs[a] = (2^as.numeric(logfitcoefs[1]))/4
+        logdifcosinglevecs[a] = (2^as.numeric(logfitcoefs[1]))/4
+        logalphavecs[a] = as.numeric(logfitcoefs[2])
+        logalphasinglevecs[a] = as.numeric(logfitcoefs[2])
+      }      else
+      {
+        logdifcovecs[a] = NA
+        logalphavecs[a] = NA
+      }
+    
+    framesintrackvec[a] = framesintrack
+ 
+    
+          
+    }
+  else
+    {
+    difcovecs[a] = difcovecs[a-1]
+    alphavecs[a] = alphavecs[a-1]
+    logdifcovecs[a] = logdifcovecs[a-1]
+    logalphavecs[a] = logalphavecs[a-1]
+    
+    difcocirclevecs[a] = difcocirclevecs[a-1]
+    radconfvecs[a] = radconfvecs[a-1]
+    
+    framesintrackvec[a] = framesintrackvec[a-1]
+    }
+  
+  thisskip = 0
+  if (((a>1) && (dispskipvec[a-1] == 1) && (testdf$TRACK_ID[a] == testdf$TRACK_ID[a-1]))  || ((a+dispn) > length(testdf$TRACK_ID)))
+    {
+    dispnvec[a] = NA
+    dispskipvec[a] = 1
+    }
+  else
+    {
+    
+    if ((testdf$TRACK_ID[a] == testdf$TRACK_ID[a+dispn]) && ((testdf$FRAME[a] + dispn) == testdf$FRAME[a+dispn])) 
+      {
+      dispnvec[a] = ((testdf$POSITION_X[a] - testdf$POSITION_X[a+dispn])^2 + (testdf$POSITION_Y[a] - testdf$POSITION_Y[a+dispn])^2)^(1/2)
+      }
+    else
+      {
+      for (f in 1:dispn)
+        {
+        if (((testdf$FRAME[a]+dispn) == testdf$FRAME[a+dispn-f] ) && ((testdf$TRACK_ID[a]) == testdf$TRACK_ID[a+dispn-f] ) )
+          {
+          break
+          }
+        if (((testdf$FRAME[a] + dispn) > testdf$FRAME[a+dispn-f] ) && ((testdf$TRACK_ID[a]) == testdf$TRACK_ID[a+dispn-f] ))
+          {
+          thisskip = 1
+          break
+          }
+        }
+      if (thisskip == 1) 
+        {
+        dispnvec[a] = NA 
+        }
+      else
+        {
+        dispnvec[a] = ((testdf$POSITION_X[a] - testdf$POSITION_X[a+dispn-f])^2 + (testdf$POSITION_Y[a] - testdf$POSITION_Y[a+dispn-f])^2)^(1/2)
+        }
+      }
+      
+    }
+    
+
+  }
+
+### Rose Plot Calculations
+
+
+degreevect = vector(mode = 'double', length = length(testdf$TRACK_ID))
+normdegreevect = vector(mode = 'double', length = length(testdf$TRACK_ID))
+disp1vect = vector(mode =  'double', length = length(testdf$TRACK_ID))
+
+xnormdegvardisp = vector(mode = 'double', length = length(testdf$TRACK_ID))
+ynormdegvardisp = vector(mode = 'double', length = length(testdf$TRACK_ID))
+
+for (u in 1:(length(testdf$TRACK_ID)-1)) 
+{
+  if ((testdf$TRACK_ID[u] == testdf$TRACK_ID[(u+1)]) && (testdf$FRAME[u] == (testdf$FRAME[(u+1)]-1)))
+  {
+    degreevect[u] = (((atan2((testdf$POSITION_Y[(u+1)]-testdf$POSITION_Y[u]),(testdf$POSITION_X[(u+1)] - testdf$POSITION_X[u]))) * 180 / pi) + 360) %% 360
+    disp1vect[u] = ((testdf$POSITION_X[u] - testdf$POSITION_X[u+1])^2 + (testdf$POSITION_Y[u] - testdf$POSITION_Y[u+1])^2)^(1/2)
+  }  
+  else
+  {
+    degreevect[u] = NA
+  }
+}
+
+
+
+for (u in 1:(length(testdf$TRACK_ID) - 1)) 
+{
+  if (!is.na(degreevect[u]))
+  {
+    if (u>1) 
+    {
+      if (!is.na(degreevect[(u-1)])) 
+      {
+        normdegreevect[u] = degreevect[u] - degreevect[(u-1)]
+        if (normdegreevect[u] < 0) 
+        {
+          normdegreevect[u] = normdegreevect[u] + 360
+        }
+      }
+     else
+      {
+       normdegreevect[u] = degreevect[u]
+      }
+    }
+    else
+    {
+      normdegreevect[u] = degreevect[u]
+    }
+  }
+  else
+  {
+    normdegreevect[u] = NA
+  }
+}
+
+for (u in 1:length(testdf$TRACK_ID)) 
+{
+  if (!is.na(normdegreevect[u])) 
+  {
+    xnormdegvardisp[u] =  disp1vect[u] * cos((normdegreevect[u] / 180 * pi))
+    ynormdegvardisp[u] =  disp1vect[u] * sin((normdegreevect[u] / 180 * pi))
+  }
+  else
+  {
+    xnormdegvardisp[u] = NA
+    ynormdegvardisp[u] = NA
+  }
+}
+
+newdf = select(testdf, TRACK_ID, QUALITY, POSITION_X, POSITION_Y, FRAME, MEAN_INTENSITY01, MEAN_INTENSITY02, MEAN_INTENSITY03)
+ 
+
+newdf$FRAMES_IN_TRACK = framesintrackvec  
+  
+newdf$DIFCO = difcovecs
+newdf$ALPHA = alphavecs
+newdf$DIFCOLOG = logdifcovecs
+newdf$ALPHALOG = logalphavecs
+
+newdf$DIFCO_SING = difcosinglevecs
+newdf$ALPHA_SING = alphasinglevecs
+newdf$DIFCOLOG_SING = logdifcosinglevecs
+newdf$ALPHALOG_SING = logalphasinglevecs
+
+
+
+newdf$DISPN = dispnvec
+
+newdf$DEGREE = degreevect
+newdf$DEGREENORM = normdegreevect
+newdf$DISP1 = disp1vect
+
+newdf$XNORMDISP = xnormdegvardisp
+newdf$YNORMDISP = ynormdegvardisp
+
+
+
+newdf$RADIUS_CONFINEMENT = radconfvecs
+newdf$DIFCO_RADIUSCONF = difcocirclevecs
+
+newdf$RADIUS_CONFINEMENT_SING = radconfsinglevecs
+newdf$DIFCO_RADIUSCONF_SING = difcocirclesinglevecs
+
+
+
+
+
+
+
+
+
+
+
+
+
+#
+#
+#
+#
+#
+#
+
+testdf2 = filter(testdf, FRAME > 1000)
+
+
+
+
+trackstart_temp_pos = 1
+trackdur_temp = 1
+
+duration_vector = rep(0, length(testdf2$TRACK_ID))
+distance_vector = rep(0, length(testdf2$TRACK_ID))
+
+for (aa in 2:length(testdf2$TRACK_ID)) {
+  if (testdf2$TRACK_ID[aa] != testdf2$TRACK_ID[(aa-1)]) {
+    duration_vector[trackstart_temp_pos] = trackdur_temp
+    
+    trackstart_temp_pos = aa
+    trackdur_temp = 1
+    
+  }
+  else{
+    trackdur_temp = trackdur_temp+1
+    distance_vector[aa] = ((testdf2$POSITION_X[aa] - testdf2$POSITION_X[(trackstart_temp_pos)])^2 + (testdf2$POSITION_Y[aa] - testdf2$POSITION_Y[(trackstart_temp_pos)])^2)^(1/2)
+  }
+  
+}
+
+
+#create vector of distance of each point in the tract relative to the first position in the track, or, if the track is over 40 points, the point 40 frames from the current position
+
+rolltrackstart_temp_pos = 1
+rolltrackdur_temp = 1
+
+rollduration_vector = rep(0, length(testdf2$TRACK_ID))
+rolldistance_vector = rep(0, length(testdf2$TRACK_ID))
+
+
+
+for (aa in 2:length(testdf2$TRACK_ID)) {
+  if (testdf2$TRACK_ID[aa] != testdf2$TRACK_ID[(aa-1)]) {
+    rollduration_vector[rolltrackstart_temp_pos] = rolltrackdur_temp
+    
+    rolltrackstart_temp_pos = aa
+    rolltrackdur_temp = 1
+    
+  }
+  else{
+    
+    rolltrackdur_temp = rolltrackdur_temp+1
+    rolltrackdur_temp2 = testdf2$FRAME[aa]-testdf2$FRAME[rolltrackstart_temp_pos]
+    
+    if (rolltrackdur_temp2 < 40) {
+      rolldistance_vector[aa] = ((testdf2$POSITION_X[aa] - testdf2$POSITION_X[(rolltrackstart_temp_pos)])^2 + (testdf2$POSITION_Y[aa] - testdf2$POSITION_Y[(rolltrackstart_temp_pos)])^2)^(1/2)
+    }
+    else{
+      if (rolltrackdur_temp >40) {
+        rollbackstartcheck = aa-40
+
+      }
+      else{
+        rollbackstartcheck = rolltrackstart_temp_pos
+      }
+      #start rolling back the rollback value until we're a 40 frames or less from aa
+      rollbackframediff = testdf2$FRAME[aa]-testdf2$FRAME[rollbackstartcheck]
+      while (rollbackframediff > 40) {
+        rollbackstartcheck = rollbackstartcheck + 1
+        rollbackframediff = testdf2$FRAME[aa]-testdf2$FRAME[rollbackstartcheck]
+      }
+
+      rolldistance_vector[aa] = ((testdf2$POSITION_X[aa] - testdf2$POSITION_X[(rollbackstartcheck)])^2 + (testdf2$POSITION_Y[aa] - testdf2$POSITION_Y[(rollbackstartcheck)])^2)^(1/2)
+
+    }
+    
+    
+    
+    
+    
+  }
+  
+}
+
+#Determine if how long each track remains under various distance thresholds for either the fixed or rolling track distance vectors
+
+trackstart_temp_pos = 1
+
+trackfixdurrad250 = 1
+trackfixdurrad500 = 1
+trackfixdurrad750 = 1
+trackfixdurrad1000 = 1
+trackfixdurrad1500 = 1
+
+trackrolldurrad250 = 1
+trackrolldurrad500 = 1
+trackrolldurrad750 = 1
+trackrolldurrad1000 = 1
+trackrolldurrad1500 = 1
+
+fixdurrad250_vector = rep(0, length(testdf2$TRACK_ID))
+fixdurrad500_vector = rep(0, length(testdf2$TRACK_ID))
+fixdurrad750_vector = rep(0, length(testdf2$TRACK_ID))
+fixdurrad1000_vector = rep(0, length(testdf2$TRACK_ID))
+fixdurrad1500_vector = rep(0, length(testdf2$TRACK_ID))
+
+rolldurrad250_vector = rep(0, length(testdf2$TRACK_ID))
+rolldurrad500_vector = rep(0, length(testdf2$TRACK_ID))
+rolldurrad750_vector = rep(0, length(testdf2$TRACK_ID))
+rolldurrad1000_vector = rep(0, length(testdf2$TRACK_ID))
+rolldurrad1500_vector = rep(0, length(testdf2$TRACK_ID))
+
+    fix250kill = 0
+    fix500kill = 0
+    fix750kill = 0
+    fix1000kill = 0
+    fix1500kill = 0
+    
+    roll250kill = 0
+    roll500kill = 0
+    roll750kill = 0
+    roll1000kill = 0
+    roll1500kill = 0
+
+
+for (aa in 2:length(testdf2$TRACK_ID)) {
+  if (testdf2$TRACK_ID[aa] != testdf2$TRACK_ID[(aa-1)]) {
+    
+    fixdurrad250_vector[trackstart_temp_pos] = trackfixdurrad250
+    fixdurrad500_vector[trackstart_temp_pos] = trackfixdurrad500
+    fixdurrad750_vector[trackstart_temp_pos] = trackfixdurrad750
+    fixdurrad1000_vector[trackstart_temp_pos] = trackfixdurrad1000
+    fixdurrad1500_vector[trackstart_temp_pos] = trackfixdurrad1500
+
+    rolldurrad250_vector[trackstart_temp_pos] = trackrolldurrad250
+    rolldurrad500_vector[trackstart_temp_pos] = trackrolldurrad500
+    rolldurrad750_vector[trackstart_temp_pos] = trackrolldurrad750
+    rolldurrad1000_vector[trackstart_temp_pos] = trackrolldurrad1000
+    rolldurrad1500_vector[trackstart_temp_pos] = trackrolldurrad1500
+    
+    
+    trackstart_temp_pos = aa
+    trackfixdurrad250 = 1
+    trackfixdurrad500 = 1
+    trackfixdurrad750 = 1
+    trackfixdurrad1000 = 1
+    trackfixdurrad1500 = 1
+
+    trackrolldurrad250 = 1
+    trackrolldurrad500 = 1
+    trackrolldurrad750 = 1
+    trackrolldurrad1000 = 1
+    trackrolldurrad1500 = 1
+    
+    fix250kill = 0
+    fix500kill = 0
+    fix750kill = 0
+    fix1000kill = 0
+    fix1500kill = 0
+    
+    roll250kill = 0
+    roll500kill = 0
+    roll750kill = 0
+    roll1000kill = 0
+    roll1500kill = 0
+    
+    
+  }
+  else{
+    if ((distance_vector[aa] < 0.25) && (fix250kill == 0)) {
+      trackfixdurrad250 = trackfixdurrad250 + 1
+    }
+    else{
+      fix250kill = 1
+    }
+    if ((distance_vector[aa] < 0.5) && (fix500kill == 0)) {
+      trackfixdurrad500 = trackfixdurrad500 + 1
+    }
+    else{
+      fix500kill = 1
+    }
+    if ((distance_vector[aa] < 0.75) && (fix750kill == 0)) {
+      trackfixdurrad750 = trackfixdurrad750 + 1
+    }
+    else{
+      fix750kill = 1
+    }
+    if ((distance_vector[aa] < 1) && (fix1000kill == 0)) {
+      trackfixdurrad1000 = trackfixdurrad1000 + 1
+    }
+    else{
+      fix1000kill = 1
+    }
+    if ((distance_vector[aa] < 1.5) && (fix1500kill == 0)) {
+      trackfixdurrad1500 = trackfixdurrad1500 + 1
+    }
+    else{
+      fix1500kill = 1
+    }
+    
+    
+    
+    
+    
+    if ((rolldistance_vector[aa] < 0.25) && (roll250kill == 0)) {
+      trackrolldurrad250 = trackrolldurrad250 + 1
+    }
+    else{
+      roll250kill = 1
+    }
+    if ((rolldistance_vector[aa] < 0.5) && (roll500kill == 0)) {
+      trackrolldurrad500 = trackrolldurrad500 + 1
+    }
+    else{
+      roll500kill = 1
+    }
+    if ((rolldistance_vector[aa] < 0.75) && (roll750kill == 0)) {
+      trackrolldurrad750 = trackrolldurrad750 + 1
+    }
+    else{
+      roll750kill = 1
+    }
+    if ((rolldistance_vector[aa] < 1) && (roll1000kill == 0)) {
+      trackrolldurrad1000 = trackrolldurrad1000 + 1
+    }
+    else{
+      roll1000kill = 1
+    }
+    if ((rolldistance_vector[aa] < 1.5) && (roll1500kill == 0)) {
+      trackrolldurrad1500 = trackrolldurrad1500 + 1
+    }
+    else{
+      roll1500kill = 1
+    }
+    
+  }
+  
+}
+
+fixdurrad250_vector[trackstart_temp_pos] = trackfixdurrad250
+fixdurrad500_vector[trackstart_temp_pos] = trackfixdurrad500
+fixdurrad750_vector[trackstart_temp_pos] = trackfixdurrad750
+fixdurrad1000_vector[trackstart_temp_pos] = trackfixdurrad1000
+fixdurrad1500_vector[trackstart_temp_pos] = trackfixdurrad1500
+
+rolldurrad250_vector[trackstart_temp_pos] = trackrolldurrad250
+rolldurrad500_vector[trackstart_temp_pos] = trackrolldurrad500
+rolldurrad750_vector[trackstart_temp_pos] = trackrolldurrad750
+rolldurrad1000_vector[trackstart_temp_pos] = trackrolldurrad1000
+rolldurrad1500_vector[trackstart_temp_pos] = trackrolldurrad1500
+
+
+newdf$FIX250 = fixdurrad250_vector
+newdf$FIX500 = fixdurrad500_vector
+newdf$FIX750 = fixdurrad750_vector
+newdf$FIX1000 = fixdurrad1000_vector
+newdf$FIX1500 = fixdurrad1500_vector
+
+newdf$ROLL250 = rolldurrad250_vector
+newdf$ROLL500 = rolldurrad500_vector
+newdf$ROLL750 = rolldurrad750_vector
+newdf$ROLL1000 = rolldurrad1000_vector
+newdf$ROLL1500 = rolldurrad1500_vector
+
+
+write.csv(newdf, file = str_c(parentdir,'msd_merge/',substr(spotslistshort[i],1,(str_length(spotslistshort[i])-4)),'.csv'))
+
+}
+
+# testdf$DEGREE_OF_MOTION = degreevect
+# testdf$NORM_DEGREE_OF_MOTION = normdegreevect
+# testdf$NORM_POS_X = xnormdegvardisp
+# testdf$NORM_POS_Y = ynormdegvardisp
+
+
+
+```
+```{r}
+print(a)
+```
+
+
+```{r}
+# head(newveca,30)
+# head(newvecb,30)
+# head(newvecspots,30)
+# head(newvecframes,30)
+
+# head(arepvec,100)
+# head(brepvec,100)
+# head(crepvec,100)
+# head(drepvec,100)
+# head(erepvec,100)
+# head(msdrepvec, 100)
+
+#head(msdvec,30)
+#head(dtvec,30)
+# head(skiprepvec, 100)
+
+#repdataframe = data.frame(arepvec, brepvec, crepvec, drepvec, erepvec, msdrepvec, skiprepvec, framestartrepvec, framedestrepvec)
+repdataframe = data.frame(dispnvec, dispskipvec, testdf$FRAME, testdf$TRACK_ID, testdf$POSITION_X, testdf$POSITION_Y, degreevect, normdegreevect, disp1vect, xnormdegvardisp, ynormdegvardisp)
+```
+
+
+```{r}
+#testvector = vector(length = 4)
+testvector = rep(NA,4)
+testvector[1] = 1
+testvector[2] = 2
+testvector[4] = 4
+logtestvector = log(testvector)
+print(testvector)
+print(logtestvector)
+print(na.omit(testvector))
+print(na.omit(logtestvector))
+
+```
+```{r}
+testvector = na.exclude(testvector)
+print(testvector[3])
+```
+```{r}
+testval= NA
+testval = sum(testval,1,na.rm = TRUE)
+print(testval)
+
+```
+
+
+
+```{r}
+
+library(dplyr)
+library(readr)
+library(tibble)
+library(stringr)
+
+
+testdf = read_tsv('F:/5-29-20_Nikon_smt_16hex_e2/spotsnotdone/20200529_133713_821__Channel561-TIRF_Triggered_Seq0000 -E2 posthex 10.tifspot_in_tracks.txt')
+
+
+```
+
+```{r}
+tempdf = select(testdf, POSITION_X, POSITION_Y, FRAME)
+```
+```{r}
+tompy = 1
+if (!is.na(tompy)) 
+  {
+  print("something")
+  }
+```
+```{r}
+print(alphavecs[281])
+print(difcovecs[281])
+print(logalphavecs[281])
+print(logdifcovecs[281])
+print(framesintrackvec[281])
+```
+```{r}
+
+ddff = testdf
+ddff = ddff %>% group_by(TRACK_ID) %>% filter(n() > 4)
+
+```
+
+```{r}
+#THIS ONE FIRST, AMIR
+#THIS ONE FIRST, AMIR
+#THIS ONE FIRST, AMIR
+defaultW <- getOption("warn")
+options(warn = -1)
+
+#turns warnings back on
+#options(warn = defaultW)
+
+```
+```{r}
+print(rollbackframediff)
+```
+
+
+
+
+
+
+
+
+
+
